@@ -111,6 +111,7 @@ compiled, then use it to compile the files below.
 #+NAME: render_examples.sh
 #+BEGIN_SRC sh :tangle render_examples.sh
 ./lilgest p0.lil
+./lilgest p1.lil
 ./lilgest p2.lil
 ./lilgest p3.lil
 ./lilgest p4.lil
@@ -278,6 +279,8 @@ expect to hear discrete notes in the output. Instead, they
 are all glissando'd together like some LFO. This is because
 the default behvaior of a target is linear. These targets
 are acting like breakpoints in a line generator!
+
+@!(audio "loom/gest/p0.ogg")!@
 ** Part 1: Behaviors
 The next example build off the previous example by
 explicitly defining target behaviors. After a target
@@ -320,6 +323,8 @@ regget 0
 unhold zz
 computes 10
 #+END_SRC
+
+@!(audio "loom/gest/p1.ogg")!@
 ** Part 2: Polyramps
 Rhythmic subdivisions in gestures are done using polyramps,
 which get their name because they divide up a larger ramp
@@ -384,6 +389,8 @@ regget 0
 unhold zz
 computes 10
 #+END_SRC
+
+@!(audio "loom/gest/p2.ogg")!@
 ** Part 3: Monoramps
 The monoramp can be thought of as the reverse of a polyramp.
 It takes two or more consecutive ramps at the same level
@@ -432,6 +439,8 @@ regget 0
 unhold zz
 computes 10
 #+END_SRC
+
+@!(audio "loom/gest/p3.ogg")!@
 ** Part 4: Nested Polyramps
 Polyramps can be populated with more polyramps to do more
 rhythmic subdivisions.
@@ -492,6 +501,8 @@ regget 0
 unhold zz
 computes 10
 #+END_SRC
+
+@!(audio "loom/gest/p4.ogg")!@
 ** Part 5: Complex Rhythms
 Combining monoramps and polyramps can be used to produce
 more complex rhythms. In this example, a monoramp is
@@ -546,6 +557,8 @@ regget 0
 unhold zz
 computes 10
 #+END_SRC
+
+@!(audio "loom/gest/p5.ogg")!@
 ** Part 6: Temporal Weight and Multiple Gestures
 This guide will conclude by garnishing the previous
 example with temporal weight and more gestures to emphasize
@@ -644,3 +657,5 @@ regget 2
 unhold zz
 computes 10
 #+END_SRC
+
+@!(audio "loom/gest/p6.ogg")!@
