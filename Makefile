@@ -1,6 +1,6 @@
 OBJ=gest.o skgest.o
 
-CFLAGS=-Wall -Wno-format -O3 -g
+CFLAGS=-Wall -pedantic -O3 -g
 
 default: example lilgest
 
