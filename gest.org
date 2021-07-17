@@ -1,0 +1,1976 @@
+#+TITLE:Gest
+* Overview
+Gest is a sequencer for gesture.
+
+Gest lies somewhere between a classical step sequencer and
+an automation curve generator. The goal of Gest is to be a
+better LFO.
+
+To understand how Gest works, a few terms will be described.
+
+Gest synthesizes =Gestures=: audio-rate control signals
+intended to be mapped to parameters of other unit
+generators in a modular synthesis environment. The overall
+goal of Gest is to be able to use it as a way to add more
+layers of nuance to computer-performed music, in
+particular, lyrical music.
+
+Similar to a step sequencer, Gest is clocked by an exernal
+signal, known as a =conductor= signal. This signal is
+expected to be a =phasor= signal, a periodic rising ramp
+signal going from 0 to 1. Once instantiated with a
+conductor signal, Gest can then be programmed to perform
+Gestures.
+
+A phasor is a continuous timing source. Not only does it
+mark out pacing, but also position within a beat. Every
+full ramp from 0 to 1 is a period, referred to as a =beat=
+of time.
+
+Gestures are created in sequences of chunks. A single chunk
+is known as a =phrase=. A phrase takes up duration measured
+in beats from the conductor signal. The phrase analyzes the
+conductor, and resynthesizes a new slower signal: a single
+ramp going from 0 to 1 spannign the whole duration of the
+phrase. This signal is called a =monoramp=. The monoramp
+acts a blank canvas to make rhythms with. A monoramp can be
+equally divided up into an arbitray number of smaller
+ramps, known as a =polyramp=. Contiguous ramps in a
+polyramp can be fused backtogether in monoramps, and then
+more polyramps can be made from those. This builds a tree
+hierarchy of ramps with various subdivisions, known as a
+=ramp tree=.
+
+The end leaves of the Ramp Tree are capped with what is
+known as a =target=. A target is a scalar value. Using the
+ramps from the Ramp Tree, consecutive targets are
+interpolated together to generate a contiguous line
+segment. The way segments travel from target A to B is
+known as a =behavior=. Behaviors can be any number of
+things, including linear, exponential, or step.
+* Tangled Files
+=gest.c= and =gest.h=.
+
+Defining =GEST_PRIVATE= will expose the core gest struct.
+
+#+NAME: gest.h
+#+BEGIN_SRC c :tangle gest.h
+#ifndef GEST_H
+#define GEST_H
+
+#ifndef SKFLT
+#define SKFLT float
+#endif
+
+<<typedefs>>
+
+#ifdef GEST_PRIVATE
+<<structs>>
+#endif
+
+<<funcdefs>>
+#endif
+#+END_SRC
+
+#+NAME: gest.c
+#+BEGIN_SRC c :tangle gest.c
+#include <stdlib.h>
+#define GEST_PRIVATE
+#include "gest.h"
+<<enums>>
+<<static_funcdefs>>
+<<funcs>>
+#+END_SRC
+* Core Struct
+** Struct Declaration(s)
+All data for instance of gest is managed in a struct
+called =gest_d=. It is initialized with =gest_init=.
+
+#+NAME: typedefs
+#+BEGIN_SRC c
+typedef struct gest_d gest_d;
+#+END_SRC
+
+#+NAME: structs
+#+BEGIN_SRC c
+<<gest_target>>
+<<struct_ramptree>>
+<<struct_phrase>>
+<<struct_collection>>
+struct gest_d {
+    <<gest_d>>
+};
+#+END_SRC
+** Initialization
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_init(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_init(gest_d *g)
+{
+    <<init>>
+}
+#+END_SRC
+** Cleanup
+Fully clean up things with =gest_cleanup=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_cleanup(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_cleanup(gest_d *g)
+{
+    <<cleanup>>
+}
+#+END_SRC
+** Sizeof
+=gest_sizeof= is used for opaque functions.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+size_t gest_sizeof(void);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+size_t gest_sizeof(void)
+{
+    return sizeof(gest_d);
+}
+#+END_SRC
+* Components
+** Conductor Analysis Components
+#+NAME: gest_d
+#+BEGIN_SRC c
+SKFLT last;
+SKFLT last_inc;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+g->last = 0;
+g->last_inc = 0;
+#+END_SRC
+
+When the previous sample is larger
+than the current sample, it is registered as a reset, and
+the reset flag is set.
+** Phase
+#+NAME: gest_d
+#+BEGIN_SRC c
+SKFLT phs;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+g->phs = -1;
+#+END_SRC
+** Top/Selected Target and Cached Values
+This is called =curtarget=.
+
+The top target from the first phrase is stored
+in a variable called =toptarget=. This is used
+so the last target of the last phrase can smoothly
+loop back to the top.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+gest_target *curtarget;
+gest_target *toptarget;
+gest_target *nxttarget;
+int targetondeck;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+g->curtarget = NULL;
+g->toptarget = NULL;
+g->nxttarget = NULL;
+g->targetondeck = 0;
+#+END_SRC
+
+Value for the current and next targets are cached
+for faster accessibility.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+SKFLT curval;
+SKFLT nxtval;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+g->curval = 0;
+g->nxtval = 0;
+#+END_SRC
+
+Update the current target with =set_curtarget=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void set_curtarget(gest_d *g, gest_target *target);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void set_curtarget(gest_d *g, gest_target *target)
+{
+    g->curtarget = target;
+    g->curval = target->value;
+
+    if (target->next != NULL) {
+        g->nxtval = target->next->value;
+    } else {
+        g->nxtval = g->curval;
+    }
+
+    apply_weight(g, target);
+}
+#+END_SRC
+
+A next target is needed because during computation, the
+previous state is always used, and therefore
+the previous targets are needed.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void set_nxttarget(gest_d *g, gest_target *target);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void set_nxttarget(gest_d *g, gest_target *target)
+{
+    g->nxttarget = target;
+    g->targetondeck = 1;
+}
+#+END_SRC
+** Stack
+Tree nodes create a new layer every time it descends into
+children nodes. This is managed with a stack containing the
+parent node and current state. When a node begins, it
+pushes itself onto the stack, and pops itself off when it
+ends.
+** Modifier
+The modifier is a value which mainpulates the increment
+value calculated from the analyzing the conductor signal.
+
+It is represented as a rational value with a numerator and
+denominator, represented as integers.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+int num;
+int den;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+g->num = 1;
+g->den = 1;
+#+END_SRC
+
+Monoramps manipulate
+the numerator, increasing the increment value by a factor
+and slowing it down. Polyramps manpulate the denominator,
+decreasing the increment amount and speeding it up.
+** Top/Selected Phrases
+Gestures are created in units of phrases, so a few
+variable references are stored here.
+
+For starters, the starting phrase is stored in a variable
+called =phrase_top=. It is expected that the gesture will
+iterate in a (mostly) linear fashion as a linked list.
+
+When populating and computing gest, the currently
+selected phrase is stored in a variable called
+=phrase_selected=.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+gest_phrase *phrase_top;
+gest_phrase *phrase_selected;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+g->phrase_top = NULL;
+g->phrase_selected = NULL;
+#+END_SRC
+** Collection
+A local instance of a =gest_collection=, used to allocate
+components needed to make gestures.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+gest_collection col;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+collection_init(&g->col);
+#+END_SRC
+
+#+NAME: cleanup
+#+BEGIN_SRC c
+collection_cleanup(&g->col);
+#+END_SRC
+** Selected Ramp Tree Node
+A copy of the currently selected ramp tree node
+is stored in a variable called =curnode=.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+gest_node *curnode;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+g->curnode = NULL;
+#+END_SRC
+
+select it with =set_curnode=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void set_curnode(gest_d *g, gest_node *node);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void set_curnode(gest_d *g, gest_node *node)
+{
+    g->curnode = node;
+}
+#+END_SRC
+** Phasor Error
+Any time the ramp/phasor wraps around, the carry over
+gets saved to an error variable, which is factored
+into the next ramp.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+SKFLT error;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+g->error = 0;
+#+END_SRC
+** Node Position
+Needed for debugging.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+int nodepos;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+g->nodepos = 0;
+#+END_SRC
+** Global Temporal Inertia and Mass
+The global inertia and mass amounts used for
+temporal weight.
+
+Targets in Gest can manipulate the external conductor
+signal, causing temporal fluctuations. Tempo can be
+slowed down or sped up by changing the mass. The
+rate at which the changes happen is measured with
+inertia.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+SKFLT inertia;
+SKFLT mass;
+#+END_SRC
+
+By default, the mass is set to be regular (0) with
+instantaneous inertia (0).
+
+#+NAME: init
+#+BEGIN_SRC c
+g->inertia = 0;
+g->mass = 0;
+#+END_SRC
+
+Getters are =gest_mass_get= and =gest_inertia_get=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+SKFLT gest_mass_get(gest_d *g);
+SKFLT gest_inertia_get(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+SKFLT gest_mass_get(gest_d *g)
+{
+    return g->mass;
+}
+
+SKFLT gest_inertia_get(gest_d *g)
+{
+    return g->inertia;
+}
+#+END_SRC
+* Core Commands
+Some core commands for programming.
+** Begin
+Begin: begins a phrase. Takes in duration (in beats) as an
+argument.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_begin(gest_d *g, int beats, int div);
+#+END_SRC
+
+The begin command creates and initializes a new phrase,
+which then gets appended to the last phrase.
+
+The first phrase to get created becomes the beginning
+phrase in gest.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_begin(gest_d *g, int beats, int div)
+{
+    gest_phrase *phrase;
+
+    phrase = gest_alloc(g, sizeof(gest_phrase));
+
+    phrase_init(g, phrase, beats, div);
+
+    if (g->phrase_top == NULL) {
+        g->phrase_top = phrase;
+    }
+
+    if (g->phrase_selected != NULL) {
+        g->phrase_selected->next = phrase;
+    }
+
+    g->phrase_selected = phrase;
+    set_curnode(g, g->phrase_selected->top);
+}
+#+END_SRC
+** End
+End: closes out the phrase. If the phrase isn't fully
+completed a non-zero value is returned.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_end(gest_d *g);
+#+END_SRC
+
+Error checking is done by examining the top-level polyramp
+in the currently selected phrase. A completed phrase will
+have every child node capped with a target.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gest_end(gest_d *g)
+{
+    return 0;
+}
+#+END_SRC
+** Polyramp
+Polyramp: Takes the current ramp, and divides it up into N
+beats.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_polyramp(gest_d *g, int div);
+#+END_SRC
+
+When a new polyramp node is made, it's node becomes
+the actively selected node to be populated. If something
+goes wrong, an non-zero error value is returned/
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gest_polyramp(gest_d *g, int div)
+{
+    gest_node *n;
+
+    n = mkpolyramp(g, g->curnode, div);
+
+    if (n == NULL) {
+        return 1;
+    }
+
+    set_curnode(g, n);
+
+    return 0;
+}
+#+END_SRC
+** Monoramp
+Monoramp: Produces a monoramp that takes up N beats.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_monoramp(gest_d *g, int nbeats);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gest_monoramp(gest_d *g, int nbeats)
+{
+    gest_node *n;
+
+    n = mkmonoramp(g, g->curnode, nbeats);
+
+    if (n == NULL) {
+        return 1;
+    }
+
+    set_curnode(g, n);
+
+    return 0;
+}
+#+END_SRC
+** Addtarget (maybe call this cap?)
+Target: Caps the current ramp with a scalar target, as a
+floating point value. uses linear behavior by default.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_addtarget(gest_d *g, SKFLT val);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gest_addtarget(gest_d *g, SKFLT val)
+{
+    gest_target *t;
+
+    t = mktarget(g);
+
+    if (g->toptarget == NULL) {
+        g->toptarget = t;
+    }
+
+
+    if (t == NULL) {
+        return 1;
+    }
+
+    if (g->curtarget != NULL) {
+        g->curtarget->next = t;
+    }
+    g->curtarget = t;
+    t->value = val;
+    gest_behavior_linear(g);
+
+    return 0;
+}
+#+END_SRC
+** Finish
+The finish command =gest_finish= completes population
+and initializes gest to start at the top.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_finish(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_finish(gest_d *g)
+{
+    gest_node *top;
+
+    g->den = 1;
+    g->num = 1;
+
+    g->phrase_selected = g->phrase_top;
+
+    top = dive_to_target(g, g->phrase_top->top);
+
+    set_curnode(g, top);
+    set_curtarget(g, top->target);
+}
+#+END_SRC
+** Loopit
+The command =gest_loopit= will loop the current phrase back
+to the beginning phrase.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_loopit(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_loopit(gest_d *g)
+{
+    g->curtarget->next = g->toptarget;
+    g->phrase_selected->next = g->phrase_top;
+}
+#+END_SRC
+* Behavior Commands
+Behaviors are the means by which one target gets to thep
+next target.
+** Linear behavior
+Linear: converts the last target to use linear behavior.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_behavior_linear(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static SKFLT linear(gest_d *g, SKFLT x, SKFLT y, SKFLT a, void *ud)
+{
+    return (1 - a)*x + a*y;
+}
+
+void gest_behavior_linear(gest_d *g)
+{
+    g->curtarget->tick = linear;
+}
+#+END_SRC
+** Step behavior
+Step: converts the last target to be a step (no line, just
+the value).
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_behavior_step(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static SKFLT step(gest_d *g, SKFLT x, SKFLT y, SKFLT a, void *ud)
+{
+    return x;
+}
+
+void gest_behavior_step(gest_d *g)
+{
+    g->curtarget->tick = step;
+}
+#+END_SRC
+** Exponential behavior
+Exponential: converts the last target to use exponential
+behavior with slope =slope=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_behavior_exponential(gest_d *g, SKFLT slope);
+#+END_SRC
+* Temporal Weight Commands
+** mass
+=gest_mass= the global mass to an absolute value.
+Should be in range -120 to 120. 120 is a number chosen
+for it's divisibility properties.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_mass(gest_d *g, SKFLT mass);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_mass(gest_d *g, SKFLT mass)
+{
+    gest_target *t;
+
+    t = g->curtarget;
+
+    t->mass = mass;
+    t->mass_mode = WEIGHT_ABSOLUTE;
+}
+#+END_SRC
+** inertia
+=gest_inertia= sets the inertia to be a absolute value.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_inertia(gest_d *g, SKFLT inertia);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_inertia(gest_d *g, SKFLT inertia)
+{
+    gest_target *t;
+
+    t = g->curtarget;
+
+    t->inertia = inertia;
+    t->inertia_mode = WEIGHT_ABSOLUTE;
+}
+#+END_SRC
+** TODO shrink/grow
+=gest_shrink= and =gest_grow= cause the mass to shrink
+and grow by a percentage value.
+** TODO speedup/slowdown
+=gest_speedup= and =gest_slowdown= cause the inertia
+to grow or shrink by a certain amount.
+* Phrases
+A gesture is built of out of chunks known as as a =phrase=.
+Phrases convert an incoming conductor signal into a single
+monoramp, and then divide that monoramp into a polyramp.
+** Struct Declaration
+#+NAME: typedefs
+#+BEGIN_SRC c
+typedef struct gest_phrase gest_phrase;
+#+END_SRC
+
+#+NAME: struct_phrase
+#+BEGIN_SRC c
+struct gest_phrase {
+    gest_node *top;
+    SKFLT mod;
+    gest_phrase *next;
+};
+#+END_SRC
+
+The phrase forms the top of a Ramp Tree that gets populated.
+
+When a phrase is over, it points to the next phrase. If
+there is no phrase, it loops back to itself.
+** Initialization
+A phrase gets initialized with =phrase_init=. The duration
+of the phrase, measured in beats, is supplied.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void phrase_init(gest_d *g,
+                        gest_phrase *phrase,
+                        int beats,
+                        int div);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void phrase_init(gest_d *g,
+                        gest_phrase *phrase,
+                        int beats,
+                        int div)
+{
+    phrase->mod = 1.0 / beats;
+    phrase->next = NULL;
+    phrase->top = mkpolyramp(g, NULL, div);
+}
+#+END_SRC
+* Ramp Tree
+** The Ramp Tree Struct
+*** Declaration
+#+NAME: typedefs
+#+BEGIN_SRC c
+typedef struct gest_node gest_node;
+#+END_SRC
+
+#+NAME: struct_ramptree
+#+BEGIN_SRC c
+struct gest_node {
+    <<gest_node>>
+};
+#+END_SRC
+
+The Ramp Tree is a hierarchical tree data structure.
+Nodes on the tree are contained in a struct known as
+a =gest_node=. It is initialized with =gest_node_init=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void gest_node_init(gest_node *n);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void gest_node_init(gest_node *n)
+{
+    <<gest_node_init>>
+}
+#+END_SRC
+*** Node Type (type)
+The node =type= indicates whether or not is a =polyramp= or
+a =monoramp=. By default, it is a null node.
+
+#+NAME: gest_node
+#+BEGIN_SRC c
+int type;
+#+END_SRC
+
+#+NAME: gest_node_init
+#+BEGIN_SRC c
+n->type = NODE_NOTHING;
+#+END_SRC
+
+#+NAME: enums
+#+BEGIN_SRC c
+enum  {
+    NODE_NOTHING,
+    NODE_POLYRAMP,
+    NODE_MONORAMP
+};
+#+END_SRC
+*** Modifier (modifier)
+The =modifier= is a integer amount used to rescale the
+incoming ramp signal.
+
+#+NAME: gest_node
+#+BEGIN_SRC c
+int modifier;
+#+END_SRC
+
+#+NAME: gest_node_init
+#+BEGIN_SRC c
+n->modifier = NODE_NOTHING;
+#+END_SRC
+*** Number of Children (nchildren)
+The number of children a node has is stored by a variable
+=nchildren=. The children nodes are stored in =children=
+as a linked list, using the =next= entry.
+
+#+NAME: gest_node
+#+BEGIN_SRC c
+int nchildren;
+#+END_SRC
+
+#+NAME: gest_node_init
+#+BEGIN_SRC c
+n->nchildren = 0;
+#+END_SRC
+*** Children Nodes
+The actual children of a particular node is contained
+in a linked list (using the node itself as an entry point).
+The node only stores the head of the list.
+
+#+NAME: gest_node
+#+BEGIN_SRC c
+gest_node *children;
+#+END_SRC
+
+#+NAME: gest_node_init
+#+BEGIN_SRC c
+n->children = NULL;
+#+END_SRC
+*** Node Target Value (target)
+Every node can carry a =target=, though only leaves of
+the tree can have targets. This value is otherwise left
+empty.
+
+#+NAME: gest_node
+#+BEGIN_SRC c
+gest_target *target;
+#+END_SRC
+
+#+NAME: gest_node_init
+#+BEGIN_SRC c
+n->target = NULL;
+#+END_SRC
+*** Next Node in List (next)
+Contiguous nodes that are children to a parent node are
+linked together in a linked list, with each node
+pointing to the next with a variable called =next=.
+
+#+NAME: gest_node
+#+BEGIN_SRC c
+gest_node *next;
+#+END_SRC
+
+#+NAME: gest_node_init
+#+BEGIN_SRC c
+n->next = NULL;
+#+END_SRC
+*** Parent Node (parent)
+A pointer to the parent node is a way for nodes
+to keep track of position while traversing or
+populating the tree.
+
+#+NAME: gest_node
+#+BEGIN_SRC c
+gest_node *parent;
+#+END_SRC
+
+#+NAME: gest_node_init
+#+BEGIN_SRC c
+n->parent = NULL;
+#+END_SRC
+*** Node ID
+used for debugging.
+#+NAME: gest_node
+#+BEGIN_SRC c
+int id;
+#+END_SRC
+
+#+NAME: gest_node_init
+#+BEGIN_SRC c
+n->id = -1;
+#+END_SRC
+** Global Modifier Manipulation
+The Ramp Tree manipulates the
+underlying rephasor signal by manipulating the incrementor
+value through multiplication or division.
+
+Iteration through a node works slightly differently
+depending on if it is a monoramp or a polyramp. A monoramp
+keeps track of time from the input signal before finishing.
+A polyramp keeps track of time using it's own synthesized
+signal. Polyramps iterate through their children nodes,
+which can recrusively call more monoramps and polyramps.
+
+Every sample, the Tree Ramp moves forward in time and
+computes a value. This value is fed into the current target
+callback.
+
+Nodes in the ramptree count. So, I guess some kind of
+counter? We will use a counter and a limit, that way the
+node can be reset multiple times. Every node updates it's
+counter when it detects a reset.
+** Populating a tree with nodes
+The general concept populating a tree is that nodes are
+created, then more nodes are created that become children
+of the previous nodes. Population of a tree works from left
+to right.
+
+Creating a node is not only allocating a node, but also
+appending it to be a child of the parent node. This
+means all nodes need to have their parent present.
+
+Linking the new node to the parent node is a matter of
+appending to the end of the =children= list.
+*** Creating a new polyramp node
+A polyramp node is a node that takes one monoramp and
+subdivides it into a fixed number of ramps. Each of
+those ramps can be a potential child node.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_node * mkpolyramp(gest_d *g,
+                              gest_node *parent,
+                              int div);
+#+END_SRC
+
+The new node is linked to the parent node by appending it
+to the end of the child list. Before this happens, a quick
+check is done to make sure the parent node isn't already
+full.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_node * mkpolyramp(gest_d *g,
+                              gest_node *parent,
+                              int div)
+{
+    gest_node *n, *last;
+    int total;
+
+    /* check to see if parent node is full */
+
+    total = 0;
+    last = NULL;
+
+    if (parent != NULL) {
+        total = node_count(parent, &last);
+        if (total >= parent->modifier) {
+            return NULL;
+        }
+    }
+
+    n = gest_alloc(g, sizeof(gest_node));
+    gest_node_init(n);
+    n->type = NODE_POLYRAMP;
+    n->modifier = div;
+    n->parent = parent;
+    n->id = g->nodepos;
+    g->nodepos++;
+
+    if (parent != NULL) {
+        append_node(parent, n, last);
+    }
+
+    if (parent == NULL) {
+        n->parent = n;
+    }
+
+    return n;
+}
+#+END_SRC
+*** Creating a new monoramp node
+A monoramp node takes a contiguous set of children from
+a polyramp node and merges them together into one ramp.
+A monoramp can have only one potential child node.
+
+The monoramp takes in the number of input ramp periods
+it will span. It will verify there is enough room in the
+parent node before creating.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_node * mkmonoramp(gest_d *g,
+                              gest_node *parent,
+                              int ninputs);
+#+END_SRC
+
+Similar to =mkpolyramp=, the parent node is checked for
+room.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_node * mkmonoramp(gest_d *g,
+                              gest_node *parent,
+                              int ninputs)
+{
+    gest_node *n, *last;
+    int total;
+
+    last = NULL;
+
+    if (parent != NULL) {
+        total = node_count(parent, &last);
+        total += ninputs;
+        if (total > parent->modifier) return NULL;
+    }
+
+    n = gest_alloc(g, sizeof(gest_node));
+    gest_node_init(n);
+    n->type = NODE_MONORAMP;
+    n->modifier = ninputs;
+    n->parent = parent;
+    n->id = g->nodepos;
+    g->nodepos++;
+
+    if (parent != NULL) {
+        append_node(parent, n, last);
+    }
+
+    return n;
+}
+#+END_SRC
+** Some Ramp Tree Functions
+*** Node Count
+=node_count= counts the number of children in a node.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static int node_count(gest_node *node, gest_node **last);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static int node_count(gest_node *node, gest_node **last)
+{
+    int total;
+    int i;
+    gest_node *child;
+
+    total = 0;
+
+    if (node == NULL) {
+        return -1;
+    }
+
+    child = node->children;
+
+    for (i = 0; i < node->nchildren; i++) {
+        if (child->type == NODE_MONORAMP) {
+            /* monoramps eat up M ramps */
+            total += child->modifier;
+        } else if (child->type == NODE_POLYRAMP) {
+            /* polyramps always occupy one ramp */
+            total++;
+        }
+
+        if (last != NULL && i == node->nchildren - 1) {
+            *last = child;
+        }
+
+        child = child->next;
+    }
+
+    return total;
+}
+#+END_SRC
+*** Append Node to Parent
+Append a node to a parent node with =append_node=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void append_node(gest_node *parent,
+                        gest_node *node,
+                        gest_node *last);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void append_node(gest_node *parent,
+                        gest_node *node,
+                        gest_node *last)
+{
+    if (last == NULL) {
+        parent->children = node;
+    } else {
+        last->next = node;
+    }
+
+    parent->nchildren++;
+}
+#+END_SRC
+*** Dive To Target
+Dive into node tree until next target is found.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_node * dive_to_target(gest_d *g,
+                                  gest_node *node);
+#+END_SRC
+
+A special edge case is handled when target node is
+a monoramp with a modifier greater than 1. It will
+be explicitely applied before being returned.
+The correspdoning reverting happens in =mktarget=
+before the next target is set.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_node * dive_to_target(gest_d *g,
+                                  gest_node *node)
+{
+    if (node->target != NULL) {
+        apply_modifier(g, node);
+        return node;
+    }
+
+
+    while (node->target == NULL) {
+        apply_modifier(g, node);
+
+        /* go to left-most child */
+        node = node->children;
+        if (node == NULL) break;
+    }
+
+    if (node->type == NODE_MONORAMP && node->modifier > 1) {
+        apply_modifier(g, node);
+    }
+
+    return node;
+}
+#+END_SRC
+*** Revert/Apply Modifiers
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void revert_modifier(gest_d *g, gest_node *node);
+static void apply_modifier(gest_d *g, gest_node *node);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void revert_modifier(gest_d *g, gest_node *node)
+{
+    if (node->type == NODE_POLYRAMP) {
+        g->num /= node->modifier;
+    } else if (node->type == NODE_MONORAMP) {
+        g->den /= node->modifier;
+    }
+}
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void apply_modifier(gest_d *g, gest_node *node)
+{
+    if (node->type == NODE_POLYRAMP) {
+        g->num *= node->modifier;
+    } else if (node->type == NODE_MONORAMP) {
+        g->den *= node->modifier;
+    }
+}
+#+END_SRC
+* Stepping Through The Ramp Tree
+A big part of gest involves stepping through a ramp tree.
+A ramp tree produces a set of normalized ramp values
+from 0 to 1, whose period lengths are proportional
+to the external conductor signal. These values
+can then be used to interpolate between targets.
+
+The ramp tree value is computed with =ramptree_step=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static SKFLT ramptree_step(gest_d *g, SKFLT inc, int reset);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static SKFLT ramptree_step(gest_d *g, SKFLT inc, int reset)
+{
+    SKFLT out;
+    SKFLT phs;
+
+    out = 0;
+
+    phs = g->phs;
+
+    if (g->phrase_selected == NULL) return phs;
+
+    <<set_the_output>>
+    <<update_targets>>
+    <<update_phase>>
+    <<check_and_update>>
+
+    g->phs = phs;
+
+    return out;
+}
+#+END_SRC
+** Setting the Output
+The point of this function is to update the overall state of
+the ramp trees in gest and return a corresponding ramp
+value.
+
+The returned value is the computation done on the previous
+call to =ramptree_step=.
+
+#+NAME: set_the_output
+#+BEGIN_SRC c
+out = g->phs;
+#+END_SRC
+** Updating Targets
+If any targets were slotted to be updated in the previous
+call, update them now, then clear the flag.
+
+#+NAME: update_targets
+#+BEGIN_SRC c
+if (g->targetondeck) {
+    g->targetondeck = 0;
+    set_curtarget(g, g->nxttarget);
+    g->nxttarget = NULL;
+}
+#+END_SRC
+** Updating the phase using modifier and friends
+To begin, the modifier amount is calculated.
+
+The modifier and increment amount are used together to
+update the existing phase.
+
+#+NAME: update_phase
+#+BEGIN_SRC c
+phs += inc * ((SKFLT)g->num / g->den) * g->phrase_selected->mod;
+g->error = 0;
+#+END_SRC
+
+The phase is then checked to see if it has exceeded 1.
+If it has, a change in nodes is required.
+
+#+NAME: check_and_update
+#+BEGIN_SRC c
+if (phs > 1.0) {
+    <<find_next_node>>
+    <<wraparound>>
+}
+#+END_SRC
+** Finding the Next Node
+When the ramp reaches the end, it is time to find the next
+node with a target. It does this by traversing the Ramp
+Tree based on the position the current node is in.
+
+Traversal starts large and gets smaller.
+
+To begin, check and see if the next node happens to be in
+the next phrase. That would mean the currently selected
+node is the right-most node (no nodes after it)
+in the top of the tree. If this is true, the next phrase is
+found (assuming there is one), and configured to point to
+the first one.
+
+If it's not the top of the tree, there is a general check
+to see if the current node is the right-most node relative
+to the position in the tree. If so, the node reverts the
+global modification it did, and goes up one level to the
+parent node to check the next node there.
+
+Finally, the next node is found, and the program recursively
+dives into it to find the next target, applying modifiers
+along the way. Before that happens, the current node *may*
+need to revert the global modifier if it is a monoramp
+with a modifier greater than 1.
+
+If the next node happens to be a monoramp with a modifier
+greater than 1, it will also apply modifications. But should
+be handled inside of =dive_to_target=.
+
+#+NAME: find_next_node
+#+BEGIN_SRC c
+gest_node *next;
+gest_node *top;
+gest_node *last_reverted;
+
+next = NULL;
+last_reverted = NULL;
+
+/* maybe there needs to be a curchild? */
+/* or, maybe the top gets derived from the parent node */
+top = g->curnode;
+while (next == NULL) {
+    if (top == g->phrase_selected->top) {
+        /* are we at the end */
+        /* if so, go to next phrase */
+        if (top->next == NULL) {
+            g->phrase_selected = g->phrase_selected->next;
+            /* children points to first child node */
+
+            if (g->phrase_selected == NULL) {
+                break;
+            }
+
+            next = g->phrase_selected->top;
+            /* reset modifier */
+            g->num = 1;
+            g->den = 1;
+            next = dive_to_target(g, next);
+            set_nxttarget(g, next->target);
+        } else {
+            /* go to next child in top polyramp node */
+            next = top->next;
+
+            if (next->target == NULL) {
+                next = dive_to_target(g, next);
+            }
+
+            set_nxttarget(g, next->target);
+        }
+    } else if (top->next == NULL) {
+        revert_modifier(g, top->parent);
+        last_reverted = top->parent;
+        top = top->parent;
+    } else {
+        next = top->next;
+
+        /* if top is a monoramp >1, revert it */
+
+        if (top != last_reverted) {
+            if (top->type == NODE_MONORAMP && top->modifier > 1) {
+                /* revert the monoramp */
+                revert_modifier(g, top);
+            }
+        }
+
+        /* dive_to_target applies modifiers */
+        /* continguous nodes on the same level don't have these */
+        if (next->target == NULL) {
+            next = dive_to_target(g, next);
+        }
+
+        set_nxttarget(g, next->target);
+    }
+}
+
+set_curnode(g, next);
+#+END_SRC
+
+A phrase is considered over when it reaches the end of the
+top-level polyramp. At this point, the next phrase is found
+and set to be the beginning of that node.
+
+All ramps begin exactly at 0. When wraparound happens,
+the roundoff error is stored in the error variable.
+
+#+NAME: wraparound
+#+BEGIN_SRC c
+while (phs > 1) phs--;
+g->error = phs;
+phs = 0;
+#+END_SRC
+** Handling Roundoff Error in Phrases
+Roundoff error is a natural part of working with floating
+point, and difficult to avoid entirely. Roundoff error
+in this context leads to temporal drift in the timing
+signal. Unchecked, this will eventually lead to phrases
+being completly out of step with the rest of the music
+surrounding it.
+
+Chunking gestures into phrases helps thwart some of the
+major drift buildup that can occur over time. Phrases
+ensure that any drift is localized, which, if the phrases
+are small enough, should be quite negligible for most
+musical purposes.
+
+The Ramp Tree in a phrase applies many manipulations to a
+phasor signal, and this can cause phrases to either finish
+too quickly or too slowly. If choosing one or the other,
+finishing too quickly is always the preference.
+
+If a phrase ends before the conductor does, it is told to
+wait. While waiting, it will only return 1 without updating
+any state. When the conductor finally does catch up, the
+phrase will be granted permission to move on to the next
+phrase.
+
+Every time the phasor in a conductor signal resets (wraps
+back), it registered as a new beat. This beat gives gest
+an opportunity to "check in" with itself. Is it going ahead
+of schedule? Behind? And then, try to make the appropriate
+corrections.
+
+The progress of a phrase is kept inside of a monoramp that
+spans the duration of the phrase, and the beat position is
+kept track of as a sort of counter. A new beat indicates the
+ideal time position, which can be compared against the the
+actual position in the progress monoramp.
+
+Dividing the ideal position and actual position gives us
+a correction factor that slightly speeds up or slows down
+the phasor within the beat. If the ideal is a bit farther
+along, the correction factor will be a value greater than 1
+that runs to catch up. If the ideal is a bit behind, the
+factor will be less than 1, and will hold things back until
+the next beat.
+
+With any luck, the phrase will end just slightly before
+the conductor, allowing it to wait for the next signal.
+This happens when the monoramp exceeds 1 and/or the ramp
+tree hits the end of the phrase. At any rate, a flag is set.
+
+There can also be cases where the phrase is too slow.
+Hopefully, it is fast enough to be wrapping up the last
+target in the ramp tree. This is detected when a beat
+happens that is past the duration of the phrase. When
+this happens, the phrase is reset early, and caution
+is scattered to the wind. It's not an ideal situation, as
+this has the potential to create an audible glitch in the
+gesture.
+* Memory Collections
+Memory-allocated things are managed in a data type known
+as a =collection=. Data allocated in a collection can be
+then used on things like targets, ramp trees, phrases, and
+extra things needed by behaviors.
+** Struct Declarations
+#+NAME: typedefs
+#+BEGIN_SRC c
+typedef struct gest_collection gest_collection;
+#+END_SRC
+
+A collection is a linked list of generic pointers.
+
+#+NAME: struct_collection
+#+BEGIN_SRC c
+<<struct_collection_entry>>
+struct gest_collection {
+    struct gest_entry *tail;
+    int nitems;
+};
+#+END_SRC
+
+A linked list entry contains a generic pointer
+and an optional destructor callback that can free
+any additional memory allocated and bound to the
+pointer by the user.
+
+#+NAME: struct_collection_entry
+#+BEGIN_SRC c
+struct gest_entry {
+    void *ptr;
+    void (*free)(void *);
+    struct gest_entry *prev;
+};
+#+END_SRC
+** Initialization
+The collection is initialized with =collection_init=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void collection_init(gest_collection *col);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void collection_init(gest_collection *col)
+{
+    col->tail = NULL;
+    col->nitems = 0;
+}
+#+END_SRC
+** Allocating Memory
+Anytime Gest needs to allocate memory, the gesture
+system uses an instance of the allocator.
+*** Allocation with Destructor Callback
+The core function for memory allocation is
+=collection_alloc_dtor=. In addition to providing the size,
+an a user-defined destructor callback function. Note that
+the allocated memory here is already being managed, and that
+this is only used for any additional memory allocated inside
+of it.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void * collection_alloc_dtor(gest_collection *col,
+                                    size_t sz,
+                                    void (*free)(void*));
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void * collection_alloc_dtor(gest_collection *col,
+                                    size_t sz,
+                                    void (*free)(void*))
+{
+    struct gest_entry *ent;
+
+    ent = malloc(sizeof(struct gest_entry));
+
+    ent->ptr = calloc(1, sz);
+    ent->free = free;
+
+    ent->prev = col->tail;
+    col->tail = ent;
+    col->nitems++;
+
+    return ent->ptr;
+}
+#+END_SRC
+*** Memory allocation only
+Much of the time the destructor is not needed, so a more
+convenient =collection_alloc= function is provided.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void * collection_alloc(gest_collection *col, size_t sz);
+#+END_SRC
+
+Creates a new entry, allocates a void pointer, appends the
+entry to the list, then returns the pointer.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void * collection_alloc(gest_collection *col, size_t sz)
+{
+    return collection_alloc_dtor(col, sz, NULL);
+}
+#+END_SRC
+*** Gesture Allocator Helper functions
+The static function =gest_alloc= is a helper function
+which mostly exists to make code look cleaner.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void * gest_alloc(gest_d *gest, size_t sz);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void * gest_alloc(gest_d *gest, size_t sz)
+{
+    return collection_alloc(&gest->col, sz);
+}
+#+END_SRC
+
+** Freeing The Collection
+All previously allocated memory in Gest can be freed with
+the function =collection_cleanup=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void collection_cleanup(gest_collection *col);
+#+END_SRC
+
+Iterate through the linked list and free it all.
+
+Note that the linked list moves backwards from
+the tail to the head so that the most recently allocated
+stuff gets freed first. This is done to minimize situations
+where allocated items are somehow required to exist before
+being freed.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void collection_cleanup(gest_collection *col)
+{
+    int n;
+    struct gest_entry *ent, *prev;
+
+    ent = col->tail;
+
+    for (n = 0; n < col->nitems; n++) {
+        prev = ent->prev;
+        if (ent->free != NULL) ent->free(ent->ptr);
+        free(ent->ptr);
+        free(ent);
+        ent = prev;
+    }
+}
+#+END_SRC
+* Targets
+Targets can be contained inside of a node. If the tree
+reaches a node with a target, it sets it to be that target
+when the node starts.
+** Struct Declaration
+A target in gest is known as a =gest_target=
+
+#+NAME: typedefs
+#+BEGIN_SRC c
+typedef struct gest_target gest_target;
+#+END_SRC
+
+A target stores 3 main things: a scalar value, a callback, and
+some user data. The callback is a function that takes 4
+arguments, the gest struct, the internal value, the
+position, the next value,
+and user data. It returns a floating point value.
+
+Targets need to managed in their own linked list, in
+addition to being referenced in the node they belong to.
+Targets need to know what target is coming next (if there
+is one coming next).
+
+#+NAME: gest_target
+#+BEGIN_SRC c
+struct gest_target {
+    SKFLT value;
+    SKFLT (*tick)(gest_d *, SKFLT, SKFLT, SKFLT, void *);
+    void *ud;
+    gest_target *next;
+    <<temporal_weight>>
+};
+#+END_SRC
+** Initialization
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_target_init(gest_target *t);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_target_init(gest_target *t)
+{
+    t->value = 0;
+    t->tick = NULL;
+    t->ud = NULL;
+    t->next = NULL;
+    <<init_temporal_weight>>
+}
+#+END_SRC
+** Binding Targets to Ramp Tree Nodes
+Every target created is bound to exactly one node in a ramp
+tree. Such a binding indicates a terminal leaf node in the
+tree.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_target * mktarget(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_target * mktarget(gest_d *g)
+{
+    gest_target *t;
+    gest_node *last;
+    gest_node *curnode;
+
+    t = NULL;
+    last = NULL;
+    curnode = g->curnode;
+
+    if (curnode == NULL) {
+        return NULL;
+    }
+
+    <<check_current_node>>
+    <<create_target>>
+    <<tie_to_node>>
+    <<move_forward>>
+
+    return t;
+}
+#+END_SRC
+
+A check is done to see if the current node can have
+a target applied in the first place.
+
+#+NAME: check_current_node
+#+BEGIN_SRC c
+{
+    int size;
+
+    size = node_count(curnode, &last);
+
+    if (curnode != NULL && size >= curnode->modifier) {
+        return NULL;
+    }
+}
+#+END_SRC
+
+Creating targets are an important operation because
+it is the thing that moves the tree forward (from left
+to right) in population.
+
+#+NAME: create_target
+#+BEGIN_SRC c
+t = gest_alloc(g, sizeof(gest_target));
+gest_target_init(t);
+#+END_SRC
+
+Technically, a target is bound to the last created node,
+which is always a monoramp.
+But these
+monoramps don't have to be explicitely created. Example:
+"polyramp(3), target, target, target" will create a polyramp
+node with 3 divisions and populate each one of those
+divisisons (a monoramp) with a target (called one after
+another 3 times). So, how to deal with that? By checking
+the type of the last created child. If it exists at all,
+it is always going to be a monoramp and never a polyramp,
+due to the left-to-right method of population (new
+polyramps always get selected to be the active node).
+A monoramp's target can be checked if it is occupied. A new
+target is bound to an unoccupied monoramp target. Otherwise,
+a new monoramp with a modifier of 1 is created to house
+the new target.
+
+#+NAME: tie_to_node
+#+BEGIN_SRC c
+{
+    int rc;
+
+    rc = last != NULL &&
+        last->type == NODE_MONORAMP &&
+        last->target == NULL &&
+        last->nchildren == 0;
+
+    if (rc) {
+        last->target = t;
+    } else {
+        rc = curnode->type == NODE_MONORAMP &&
+            curnode->target == NULL;
+
+        if (rc) {
+            curnode->target = t;
+        } else {
+            gest_node *mr;
+            mr = mkmonoramp(g, curnode, 1);
+            mr->target = t;
+        }
+    }
+}
+#+END_SRC
+
+Targets are the things that move the ramp tree forward in a
+left-to-right fashion when it is being populated.
+
+A movement to the next available node happens when the
+current node has been filled up. When this happens, it will
+attempt to move up a level to find free slots there. This
+will continue to happen until a free slot is found, or it
+reaches the end of the phrase.
+
+#+NAME: move_forward
+#+BEGIN_SRC c
+{
+    gest_node *next;
+    gest_node *curr;
+
+    next = NULL;
+    curr = curnode;
+
+    while (next == NULL) {
+        int size;
+        gest_node *last;
+        int limit;
+
+        /* is there any room in the current node? */
+
+        size = node_count(curr, &last);
+
+        if (curr->type == NODE_MONORAMP) {
+            limit = curr->nchildren;
+        } else {
+            limit = curr->modifier;
+        }
+
+        /* no room ... */
+        if (size >= limit) {
+            /* onto the next... */
+
+            /* we've reached the top */
+            if (curr == curr->parent) break;
+
+            /* try one level up */
+
+            curr = curr->parent;
+
+        } else {
+            /* this node has room! */
+            next = curr;
+        }
+    }
+
+    set_curnode(g, next);
+}
+#+END_SRC
+** Temporal Weight
+Targets have temporal mass and inertia. These values
+can be used to slow down or speed up the global tempo in
+the conductor signal generator. Mass is the amount used to
+speed up or slowdown the tempo. Inertia is the speed at
+which it changes.
+
+#+NAME: temporal_weight
+#+BEGIN_SRC c
+SKFLT mass;
+SKFLT inertia;
+#+END_SRC
+
+By default, they are set to have instantaneous mass
+and weight.
+
+#+NAME: init_temporal_weight
+#+BEGIN_SRC c
+t->mass = 0;
+t->inertia = 0;
+#+END_SRC
+
+Inertial values are in units of seconds. Positive values
+only. Will be clamped.
+
+Temporal weight values can either be relative or absolute,
+determined by a flag. They are in range -120 to 120. 120 is
+used for its highly divisble properites.
+
+Masses and inertial values can mean different things, such
+as relative or absolute increases. They can
+also be ignored entirely. This is indicated by the
+mode flags =mass_mode= and =inertia_mode=.
+
+#+NAME: temporal_weight
+#+BEGIN_SRC c
+int mass_mode;
+int inertia_mode;
+#+END_SRC
+
+#+NAME: enums
+#+BEGIN_SRC c
+enum {
+    WEIGHT_IGNORE,
+    WEIGHT_ABSOLUTE,
+    WEIGHT_RELATIVE
+};
+#+END_SRC
+
+By default, both mass and inertia are set to be ignored.
+
+#+NAME: init_temporal_weight
+#+BEGIN_SRC c
+t->mass_mode = WEIGHT_IGNORE;
+t->inertia_mode = WEIGHT_IGNORE;
+#+END_SRC
+
+Temporal weight can be applied globally using the local
+function =apply_weight=. If the value is of type
+=WEIGHT_ABSOLUTE=, it will set the value directly. If
+it is =WEIGHT_RELATIVE=, it will treat the incoming
+value as a percentage and add it accordingly.
+
+values set to be =WEIGHT_IGNORE= will be ignored entirely.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void apply_weight(gest_d *g, gest_target *t);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void update_weightval(SKFLT val, int flag, SKFLT *out)
+{
+    if (flag == WEIGHT_ABSOLUTE) {
+        *out = val;
+    } else if (flag == WEIGHT_RELATIVE) {
+        *out += (*out) * val;
+    }
+}
+
+static void apply_weight(gest_d *g, gest_target *t)
+{
+    update_weightval(t->mass, t->mass_mode, &g->mass);
+    update_weightval(t->inertia, t->inertia_mode, &g->inertia);
+}
+#+END_SRC
+* Computation
+Gest is synthesized with =gest_tick=. It expects
+a conductor phasor signal =conductor=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+SKFLT gest_tick(gest_d *g, SKFLT conductor);
+#+END_SRC
+
+Analysis. The conductor signal is analyzed, and used to
+drive the timing in the Ramp Tree. The previous conductor
+signal is subtracted from the current one to produce
+the phasor increment amount =inc=.
+
+A phase reset is detected if the current conductor value
+is less than the previous. A reset flag is set, and
+the sign of the increment value is flipped to be positive.
+
+#+NAME: analysis
+#+BEGIN_SRC c
+inc = conductor - g->last;
+reset = 0;
+
+if (conductor < g->last) {
+    inc = g->last_inc;
+    reset = 1;
+}
+
+g->last_inc = inc;
+
+if (g->phs == -1) {
+    g->phs = 0;
+    reset = 1;
+}
+
+g->last = conductor;
+#+END_SRC
+
+Conductor analysis components, the ramp tree can then be
+computed with =ramptree_step=, which updates the state of
+the tree and returns the tramptree value.
+
+#+NAME: compute_ramptree
+#+BEGIN_SRC c
+out = ramptree_step(g, inc, reset);
+#+END_SRC
+
+With the computed ramp tree value in hand, the current
+target's tick function can be called. This function returns
+the output gesture.
+
+#+NAME: apply_targets
+#+BEGIN_SRC c
+if (g->curtarget != NULL) {
+    out = g->curtarget->tick(g,
+                             g->curval, g->nxtval,
+                             out,
+                             g->curtarget->ud);
+}
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+SKFLT gest_tick(gest_d *g, SKFLT conductor)
+{
+    SKFLT out;
+    SKFLT inc;
+    int reset;
+
+    out = 0;
+
+    <<analysis>>
+    <<compute_ramptree>>
+    <<apply_targets>>
+
+    return out;
+}
+#+END_SRC

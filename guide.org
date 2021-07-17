@@ -1,0 +1,646 @@
+#+TITLE: Gest: A Concise Guide
+* Overview
+Gest is a gesture sequencer for music. As a tool, it
+resembles something that would happen if a step
+sequencer and an automation curve editor had a baby.
+An instance Gest can be programmed to produce an audio-rate
+control signal intended to be used to modulate a synthesizer
+parameter.
+* Design Principles
+Gest is conceptually grounded around a few musical
+axioms, with varying degrees of truthfulness.
+
+As far as Gest is concerned, Music is...
+
+...continuous in performance, discrete in instruction.
+
+When it is written down, music gets turned into notes.
+Notes are just that, notes for human musicians to interpret.
+Similar to 2d maps of the world, music notation distorts
+the music it is trying to represent. Notation systems
+could (understandably) leave one to believe that music is
+form that can be neatly decomposed into discrete components.
+In reality, music is a very continuous
+medium. In order to perform music beautifully
+(computer or human), one must do so in a fluid manner.
+
+...rhythmically proportional.
+
+Rhythms in music are perceived to be proportional to an
+underlying implied or explicit pulse (a "beat"). In most
+situations, these relationships can be represented in
+terms of whole-integer ratios. However, performed rhythms
+do not precisely follow these ratios. The amount of imprecision,
+and the way rhythms push and pull at these underlying ratios
+is what is often referred to as "feel" or "groove".
+
+...a perceptual subset of speech in music.
+
+The way we listen to music is cognitively very similar to
+the way we listen to speech. Music that is most moving works
+because of it's resemblence to that of an emotive voice.
+* Terms in Gest
+** Gesture
+A =gesture= is what Gest produces: an audio rate signal,
+typically moving at low frequencies, and designed to be
+used to modulate synthesizer parameters like an LFO or
+envelope generator would.
+** Conductor
+A =conductor= is a phasor signal whose frequency
+denotes beats in time. A phasor signal is a periodic
+ramp generator going from 0 to 1 over a period of time.
+While usually used in computer music to build table look-up
+oscillators, phasors are used here as an external clock
+signal for Gest. Each ramp period produced by the conductor
+signal is interpretted as a beat.
+** Phrase
+The =phrase= is the core unit used in Gest. Gestures are
+chunked together using phrases in sequence.
+** Ramp Tree
+The underlying data structure in a phrase is known
+as a =Ramp Tree=. At the top of the tree, a fixed chunk
+of time measured in beats is equally divided up by some
+arbitary number. From there, the beats can be iteratively
+subdivided and glued back together using operations known
+as =polyramps= and =monoramps= to form a rhythmic structure.
+This tree structure is then scaled in a way to form a
+continuous line segment.
+*** Polyramps
+The =polyramp= operation takes a single ramp and equally
+subdivides it into smaller ramps.
+*** Monoramps
+The =monoramp= operation takes two or more consecutive ramps
+and glues them back together to form one ramp. From there,
+they can be divided up again into smaller ramps using a
+polyramp.
+** Targets
+A =target= can be thought of as a breakpoint in a line
+segment. When a Ramp Tree is populated for a phrase,
+the leaf nodes at the bottom of the tree are capped off
+with targets. When the gesture runs, the Ramp Tree is scaled
+using these targets.
+** Behaviors
+A =behavior= determines the way one target gets to another
+target. For example, linear behavior draws a straight line
+between the targets. Exponential is an exponential line.
+A step just returns the current target.
+** Temporal Weight
+=temporal weight= refers to the concept that targets can
+create tempo fluctations in the conductor signal, and
+can be used as a means to compress and expand rhythmic
+phrasing for a lyrical gesture. There are two main
+components to temporal weight: mass and inertia. Mass
+refers to how fast or slow the tempo becomes, and inertia
+refers to the rate at which something responds.
+* Examples
+The following section outlines a curated set of
+examples using Gest to control patches written sndkit.
+Programming and configuration is done using LIL, a tiny
+TCL-like scripting language included with sndkit.
+** How To Render Examples
+First, tangle this document using worgle. This
+will produce all the code snippets mentioned below.
+
+#+BEGIN_SRC sh
+worgle guide.org
+#+END_SRC
+
+Make sure =gest= and the =lilgest= program has been
+compiled, then use it to compile the files below.
+
+#+NAME: render_examples.sh
+#+BEGIN_SRC sh :tangle render_examples.sh
+./lilgest p0.lil
+./lilgest p2.lil
+./lilgest p3.lil
+./lilgest p4.lil
+./lilgest p5.lil
+./lilgest p6.lil
+#+END_SRC
+
+Or just use the generated shell script above:
+
+#+BEGIN_SRC sh
+sh render_examples.sh
+#+END_SRC
+** Part 0: Targets
+To start things off, a basic gesture using one looped
+phrase and three targets will be used.
+
+The entirety of the program can be found below, using
+named codeblocks to chunk out different sections of the
+program (a feature of literate programming).
+
+#+NAME: p0.lil
+#+BEGIN_SRC lil :tangle p0.lil
+<<generate_gesture>>
+
+<<generate_conductor>>
+
+<<oscillator>>
+
+<<write_to_wav>>
+
+<<unhold_conductor>>
+
+<<compute_audio>>
+#+END_SRC
+*** Overview of the Modular Patch
+Before sequencing the gesture, a few words on the underlying
+patch, which will be used in subsequent examples after this
+initial one.
+
+The conductor signal is generated using the =phasor=
+algorithm in sndkit. Set at a rate of 1.5Hz, this is
+equivalent to 90BPM. To make it easier to access, this
+signal is stored in a register. =hold= and =unhold= are
+low-level things that allow the cable to safely be
+stored for later.
+
+#+NAME: generate_conductor
+#+BEGIN_SRC lil
+phasor 1.5 0
+hold zz
+regset zz 0
+#+END_SRC
+
+#+NAME: unhold_conductor
+#+BEGIN_SRC lil
+regget 0
+unhold zz
+#+END_SRC
+
+The main patch is a subtractive sawtooth oscillator patch.
+A bandlimited saw oscillator =blsaw= is fed into a 1-pole
+virtual-analog lowpass filter =valp1=. Gest will be used
+to manipulate the frequency of oscillator. The Gesture
+produces a sequence =seq= in units of MIDI note numbers,
+which must be converted to frequency using =mtof=.
+
+#+NAME: oscillator
+#+BEGIN_SRC lil
+blsaw [mtof [seq]]
+mul zz 0.8
+valp1 zz 300
+#+END_SRC
+
+The output of the oscillator is written to a WAV file
+=p0.wav= using =wavout=.
+
+#+NAME: write_to_wav
+#+BEGIN_SRC lil
+wavout zz "p0.wav"
+#+END_SRC
+
+At the end, 10 seconds of audio is computed.
+
+#+NAME: compute_audio
+#+BEGIN_SRC lil
+computes 10
+#+END_SRC
+*** The Gesture
+And now, back to the gesture!
+
+This gesture, encapsulated in a function
+called =seq=, will produce a signal that controls the pitch
+of the oscillator in units of MIDI note numbers.
+
+#+NAME: generate_gesture
+#+BEGIN_SRC lil
+func seq {} {
+    <<create_gesture>>
+    <<begin_gesture>>
+    <<add_targets>>
+    <<finish_gesture>>
+    <<synthesize_gesture>>
+}
+#+END_SRC
+
+A new instance of gest is made with =gest_new= and pushed
+onto the underlying stack, and then duplicated
+(the reference to the instance) with =dup=. Under
+the hood, there's some
+implicit stack behavior happening that makes this code
+easier to read, but enough about that!
+
+#+NAME: create_gesture
+#+BEGIN_SRC lil
+gest_new
+dup
+#+END_SRC
+
+A new phrase is created with =gest_begin=. This phrase
+will allocate a chunk of time 3 beats long (first argument),
+and divide it into 3 equal parts. Because they are the same
+value, this makes the internal clock of this phrase match
+the conductor.
+
+#+NAME: begin_gesture
+#+BEGIN_SRC lil
+gest_begin 3 3
+#+END_SRC
+
+These 3 parts (often referred to here as "ramps") will be
+capped with 3 targets using =gest_target=, a command
+taking the value of the target as its argument.
+
+#+NAME: add_targets
+#+BEGIN_SRC lil
+gest_target 64
+gest_target 67
+gest_target 60
+#+END_SRC
+
+The phrase is ended with =gest_end=. This will be the only
+phrase created for the gesture, which will be set to loop
+back on itself using =gest_loopit=. The gesture is completed
+with =gest_finish=.
+
+#+NAME: finish_gesture
+#+BEGIN_SRC lil
+gest_end
+gest_loopit
+gest_finish
+#+END_SRC
+
+#+NAME: synthesize_gesture
+#+BEGIN_SRC lil
+regget 0
+gesticulate zz zz
+#+END_SRC
+
+The gesture is synthesized using the command =gesticulate=.
+The conductor signal is retrieved from register 0 using
+=regget=.
+*** Output Results
+Because discrete notes were used as targets, one could
+expect to hear discrete notes in the output. Instead, they
+are all glissando'd together like some LFO. This is because
+the default behvaior of a target is linear. These targets
+are acting like breakpoints in a line generator!
+** Part 1: Behaviors
+The next example build off the previous example by
+explicitly defining target behaviors. After a target
+is created with =gest_target=, it is explicitly defined
+to have step behavior with =gest_step=. This command
+works with the last created target.
+
+The step behavior will not do any form of interpolation
+between itself and the next target, creating the kind
+of signal one would find in a classic sequencer.
+
+#+NAME: p1.lil
+#+BEGIN_SRC lil :tangle p1.lil
+func seq {} {
+    gest_new
+    dup
+    gest_begin 3 3
+    gest_target 64
+    gest_step
+    gest_target 67
+    gest_step
+    gest_target 62
+    gest_end
+    gest_loopit
+    gest_finish
+    regget 0
+    gesticulate zz zz
+}
+
+phasor 1.5 0
+hold zz
+regset zz 0
+
+blsaw [mtof [seq]]
+mul zz 0.8
+valp1 zz 300
+wavout zz "p1.wav"
+
+regget 0
+unhold zz
+computes 10
+#+END_SRC
+** Part 2: Polyramps
+Rhythmic subdivisions in gestures are done using polyramps,
+which get their name because they divide up a larger ramp
+into smaller ones.
+
+When the phrase is first instantiated, it produces
+a ramp tree with 3 nodes which produce 3 ramps.
+
+The first polyramp that gets created divides the leftmost
+ramp into two smaller ramps, and targets are bound to these
+with step behavior.
+
+When the next target gets created, there are no available
+ramps left in the polyramp, so it moves leftwards to the
+next available ramp, which happens to be the second ramp
+found in the top of phrase.
+
+The second polyramp divides the last ramp into 2 parts like
+the first. The very last target is left to have the default
+linear behavior so it glisses back on itself.
+
+#+NAME: p2.lil
+#+BEGIN_SRC lil :tangle p2.lil
+func seq {} {
+    gest_new
+    dup
+    gest_begin 3 3
+
+    # first polyramp
+    gest_polyramp 2
+        gest_target 64
+        gest_step
+        gest_target 66
+        gest_step
+
+    gest_target 67
+    gest_step
+
+    # second polyramp
+    gest_polyramp 2
+        gest_target 69
+        gest_step
+        gest_target 62
+
+    gest_end
+    gest_loopit
+    gest_finish
+    regget 0
+    gesticulate zz zz
+}
+
+phasor 1.5 0
+hold zz
+regset zz 0
+
+blsaw [mtof [seq]]
+mul zz 0.8
+valp1 zz 300
+wavout zz "p2.wav"
+
+regget 0
+unhold zz
+computes 10
+#+END_SRC
+** Part 3: Monoramps
+The monoramp can be thought of as the reverse of a polyramp.
+It takes two or more consecutive ramps at the same level
+of tbe underlying ramp tree, and merges them into one
+continuous ramp. From there, they can be optionally
+subdivided further using polyramps (this will come later).
+
+Like the previous examples, this gesture uses a single
+looped phrase that is 3 beats long divided into 3 ramps.
+A monoramp, created using =gest_monoramp= is used to take
+the first 2 ramps to produce
+a note 2 beats long, leaving the second note to be one beat
+long.
+
+#+NAME: p3.lil
+#+BEGIN_SRC lil :tangle p3.lil
+func seq {} {
+    gest_new
+    dup
+    gest_begin 3 3
+
+    gest_monoramp 2
+        gest_target 64
+        gest_step
+
+    gest_target 62
+    gest_step
+
+    gest_end
+    gest_loopit
+    gest_finish
+    regget 0
+    gesticulate zz zz
+}
+
+phasor 1.5 0
+hold zz
+regset zz 0
+
+blsaw [mtof [seq]]
+mul zz 0.8
+valp1 zz 300
+wavout zz "p3.wav"
+
+regget 0
+unhold zz
+computes 10
+#+END_SRC
+** Part 4: Nested Polyramps
+Polyramps can be populated with more polyramps to do more
+rhythmic subdivisions.
+
+This phrase in this gesture consists of two nested
+polyramps. The first nested polyramp divides the ramp
+into 2, then one of the parts into 2 again. The
+second nested polyramp creates a triplet rhythm, then
+subdivides the last triplet beat into 2 parts.
+
+#+NAME: p4.lil
+#+BEGIN_SRC lil :tangle p4.lil
+func seq {} {
+    gest_new
+    dup
+    gest_begin 3 3
+
+    gest_polyramp 2
+        gest_target 64
+        gest_step
+        gest_polyramp 2
+            gest_target 66
+            gest_step
+            gest_target 67
+            gest_step
+
+    gest_target 69
+    gest_step
+
+    gest_polyramp 3
+        gest_target 72
+        gest_step
+        gest_target 71
+        gest_step
+        gest_polyramp 2
+            gest_target 62
+            gest_step
+            gest_target 63
+            gest_step
+
+    gest_end
+    gest_loopit
+    gest_finish
+    regget 0
+    gesticulate zz zz
+}
+
+phasor 1.5 0
+hold zz
+regset zz 0
+
+blsaw [mtof [seq]]
+mul zz 0.8
+valp1 zz 300
+wavout zz "p4.wav"
+
+regget 0
+unhold zz
+computes 10
+#+END_SRC
+** Part 5: Complex Rhythms
+Combining monoramps and polyramps can be used to produce
+more complex rhythms. In this example, a monoramp is
+used to take up the first 2 beats, and then this resulting
+ramp is divided up into a quintuplet rhythm (5 parts). The
+last beat is divided up into to parts to create an eigth
+note rhythm.
+
+#+NAME: p5.lil
+#+BEGIN_SRC lil :tangle p5.lil
+func seq {} {
+    gest_new
+    dup
+    gest_begin 3 3
+
+    gest_monoramp 2
+        gest_polyramp 5
+            gest_target 64
+            gest_step
+            gest_target 66
+            gest_step
+            gest_target 67
+            gest_step
+            gest_target 69
+            gest_step
+            gest_target 62
+            gest_step
+
+    gest_polyramp 2
+        gest_target 71
+        gest_step
+        gest_target 72
+        gest_step
+
+    gest_end
+    gest_loopit
+    gest_finish
+    regget 0
+    gesticulate zz zz
+}
+
+phasor 1.5 0
+hold zz
+regset zz 0
+
+blsaw [mtof [seq]]
+mul zz 0.8
+valp1 zz 300
+wavout zz "p5.wav"
+
+regget 0
+unhold zz
+computes 10
+#+END_SRC
+** Part 6: Temporal Weight and Multiple Gestures
+This guide will conclude by garnishing the previous
+example with temporal weight and more gestures to emphasize
+musical phrasing.
+
+Temporal weight can be used as a mechanism to dynamically
+change tempo based on context, rather than relying on a
+tempo automation curve to do the work. When certain targets
+play, they change the global inertia and mass of the
+gesture. Ab increase in mass makes things faster. An
+increase in inertia reaction time to tempo changes slower.
+
+In this particular example, temporal weight is used to shape
+the the phrasing of the quintuplets. The mass is reduced
+here so that it gently eases up on the tempo before reaching
+the peak high note. This is used to build up anticipation.
+
+A second gesture, called =brightness=, adds some rudimentary
+timbral expression by manipulating the filter cutoff amount
+during the phrase.
+
+#+NAME: p6.lil
+#+BEGIN_SRC lil :tangle p6.lil
+func seq {} {
+    regget 1
+    dup
+    gest_begin 3 3
+    gest_monoramp 2
+        gest_polyramp 5
+            gest_target 64
+            gest_step
+            gest_target 66
+            gest_step
+            gest_target 67
+            gest_step
+            # decrease mass and increase inertia
+            gest_inertia 0.5
+            gest_mass -90
+            gest_target 69
+            gest_step
+            gest_target 62
+            gest_step
+
+            # reset inertia
+            gest_inertia 0
+            gest_mass 0
+
+    gest_polyramp 2
+        gest_target 71
+        gest_step
+        gest_target 72
+        gest_step
+
+    gest_end
+    gest_loopit
+    gest_finish
+    regget 0
+    gesticulate zz zz
+}
+
+func expression {} {
+    gest_new
+    dup
+    gest_begin 3 2
+    gest_target 0
+    gest_target 1
+    gest_loopit
+    gest_finish
+    regget 0
+    gesticulate zz zz
+}
+
+gest_new
+regset zz 1
+
+regget 1
+gestweight zz
+mul zz 0.7
+add zz 1.5
+phasor zz 0
+hold zz
+regset zz 0
+
+expression
+hold zz
+regset zz 2
+
+blsaw [mtof [add [seq] [sine [param 6] [mul [regget 2] 0.1]]]]
+mul zz [scale [regget 2] 0.5 0.8]
+valp1 zz [scale [regget 2] 300 800]
+wavout zz "p6.wav"
+
+regget 0
+unhold zz
+regget 2
+unhold zz
+computes 10
+#+END_SRC
