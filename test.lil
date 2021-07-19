@@ -1,0 +1,77 @@
+func sequence {} {
+    regget 1
+    dup
+    gest_begin 3 3
+    gest_polyramp 2
+    gest_target 60
+    gest_inertia 0.1
+    gest_mass -10
+    gest_step
+    gest_target 62
+    gest_step
+    gest_target 67
+    gest_step
+
+    gest_polyramp 2
+    gest_target 69
+    gest_step
+    gest_inertia 0.01
+    gest_mass 0
+
+    gest_polyramp 4
+    gest_target 67
+    gest_step
+    gest_target 69
+    gest_step
+    gest_target 67
+    gest_step
+    gest_target 62
+    gest_step
+
+    gest_end
+    gest_loopit
+    gest_finish
+    regget 0
+    gesticulate zz zz
+}
+
+func modindex {} {
+    gest_new
+    dup
+
+    gest_begin 3 3
+    gest_monoramp 2
+    gest_target 0
+
+    gest_target 2
+    gest_end
+    gest_loopit
+    gest_finish
+    regget 0
+    gesticulate zz zz
+}
+
+gest_new
+regset zz 1
+
+
+regget 1
+gestweight zz
+mul zz 0.3
+phasor 1 0
+add zz zz
+hold
+regset zz 0
+
+gensine [tabnew 8192]
+
+mtof [sequence]
+fmpair zz zz [param 1] [param 1] [modindex] [param 0]
+mul zz 0.5
+
+wavout zz "test.wav"
+
+regget 0
+unhold zz
+
+computes 10
