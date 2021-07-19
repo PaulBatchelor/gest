@@ -210,17 +210,18 @@ static void cleanup_gest(pw_pointer *p)
     free(g);
 }
 
-gest_d * sk_node_gestnew(sk_core *core)
+gest_d *gest_pw_alloc(pw_patch *patch)
 {
     gest_d *g;
-    pw_patch *patch;
-
     g = malloc(gest_sizeof());
     gest_init(g);
-
-    patch = sk_core_patch(core);
-
     pw_patch_append_userdata(patch, cleanup_gest, g);
-
     return g;
+}
+
+gest_d * sk_node_gestnew(sk_core *core)
+{
+    pw_patch *patch;
+    patch = sk_core_patch(core);
+    return gest_pw_alloc(patch);
 }
