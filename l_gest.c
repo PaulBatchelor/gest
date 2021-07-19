@@ -1,10 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <sndkit/lil.h>
-#include <sndkit/patchwerk.h>
-#include <sndkit/core.h>
-#include <sndkit/sklil.h>
+#include "sndkit/lil.h"
+#include "sndkit/patchwerk.h"
+#include "sndkit/core.h"
+#include "sndkit/sklil.h"
 #include "gest.h"
 
 int sk_node_gesticulate(sk_core *core);

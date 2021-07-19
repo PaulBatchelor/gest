@@ -1,7 +1,7 @@
 #include <math.h>
 #include <stdlib.h>
-#include <sndkit/patchwerk.h>
-#include <sndkit/core.h>
+#include "sndkit/patchwerk.h"
+#include "sndkit/core.h"
 #include "gest.h"
 
 struct gest_n {
