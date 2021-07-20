@@ -4,27 +4,27 @@ func sequence {} {
     gest_begin 3 3
     gest_polyramp 2
     gest_target 60
+    gest_smallgliss
     gest_inertia 0.1
     gest_mass -10
-    gest_step
-    gest_target 62
-    gest_step
     gest_target 67
-    gest_step
+    gest_smallgliss
+    gest_target 74
+    gest_gliss
 
     gest_polyramp 2
-    gest_target 69
+    gest_target 67
     gest_step
     gest_inertia 0.01
     gest_mass 0
 
     gest_polyramp 4
-    gest_target 67
-    gest_step
+    gest_target 65
+    gest_smallgliss
     gest_target 69
-    gest_step
+    gest_smallgliss
     gest_target 67
-    gest_step
+    gest_gliss
     gest_target 62
     gest_step
 

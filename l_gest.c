@@ -275,6 +275,43 @@ static lil_value_t l_gest_loopit(lil_t lil,
     return NULL;
 }
 
+static lil_value_t l_gest_gliss(lil_t lil,
+                                size_t argc,
+                                lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+
+    core = lil_get_data(lil);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+    gest_behavior_gliss(g);
+
+    sk_core_generic_push(core, g);
+    return NULL;
+}
+
+static lil_value_t l_gest_smallgliss(lil_t lil,
+                                     size_t argc,
+                                     lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+
+    core = lil_get_data(lil);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+    gest_behavior_smallgliss(g);
+
+    sk_core_generic_push(core, g);
+    return NULL;
+}
+
+
 void sklil_load_gest(lil_t lil)
 {
     lil_register(lil, "gest_new", gest_new);
@@ -291,4 +328,6 @@ void sklil_load_gest(lil_t lil)
     lil_register(lil, "gest_inertia", l_gest_inertia);
     lil_register(lil, "gest_mass", l_gest_mass);
     lil_register(lil, "gest_loopit", l_gest_loopit);
+    lil_register(lil, "gest_gliss", l_gest_gliss);
+    lil_register(lil, "gest_smallgliss", l_gest_smallgliss);
 }
