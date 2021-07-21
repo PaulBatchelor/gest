@@ -617,7 +617,7 @@ void gest_loopit(gest_d *g)
 * Behavior Commands
 Behaviors are the means by which one target gets to thep
 next target.
-** Linear behavior
+** Linear
 Linear: converts the last target to use linear behavior.
 
 #+NAME: funcdefs
@@ -637,7 +637,7 @@ void gest_behavior_linear(gest_d *g)
     g->curtarget->tick = linear;
 }
 #+END_SRC
-** Step behavior
+** Step
 Step: converts the last target to be a step (no line, just
 the value).
 
@@ -721,7 +721,7 @@ void gest_behavior_smallgliss(gest_d *g)
 }
 #+END_SRC
 
-** Exponential behavior
+** Exponential
 Exponential: converts the last target to use exponential
 behavior with slope =slope=.
 
@@ -754,6 +754,98 @@ void gest_behavior_exponential(gest_d *g, SKFLT slope)
     g->curtarget->ud = gest_alloc(g, sizeof(SKFLT));
     s = (SKFLT *)g->curtarget->ud;
     *s = slope;
+}
+#+END_SRC
+** Bezier
+Applies a quadratic Bezier line segment between to two
+targets. Bezier takes in two control values that are
+control targets.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_behavior_bezier(gest_d *g, SKFLT cx, SKFLT cy);
+#+END_SRC
+
+Explanation for how this works is already done in
+the sndkit Bezier algorithm where this is
+code is based, so it's worth checking
+that out for the mathematical derivation.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+struct bezier_data {
+    SKFLT cx;
+    SKFLT cy;
+};
+
+/* https://pbat.ch/sndkit/bezier/ */
+
+static SKFLT quadratic_equation(SKFLT a, SKFLT b, SKFLT c)
+{
+    SKFLT det; /* determinant */
+
+    det = b*b - 4*a*c;
+
+    if (det >= 0) {
+        return ((-b + sqrt(det))/(2.0*a));
+    } else {
+        return 0;
+    }
+}
+
+static SKFLT find_t(SKFLT x0, SKFLT x1, SKFLT x2, SKFLT x)
+{
+    SKFLT a, b, c;
+
+    a = (x0 - 2.0 * x1 + x2);
+    b = 2.0 * (-x0 + x1);
+    c = x0 - x;
+
+    if (a) {
+        return quadratic_equation(a, b, c);
+    } else {
+        return (x - x0) / b;
+    }
+}
+
+static SKFLT bezier_curve(SKFLT xpos, SKFLT cx, SKFLT cy)
+{
+    SKFLT x[3];
+    SKFLT y[3];
+    SKFLT t;
+    SKFLT val;
+
+    x[0] = 0;
+    x[1] = cx;
+    x[2] = 1;
+
+    y[0] = 0;
+    y[1] = cy;
+    y[2] = 1;
+
+    t = find_t(x[0], x[1], x[2], xpos);
+
+    val = (1.0-t)*(1.0-t)*y[0] + 2.0*(1 - t)*t*y[1] + t*t*y[2];
+    return val;
+}
+
+static SKFLT bezier(gest_d *g, SKFLT x, SKFLT y, SKFLT a, void *ud)
+{
+
+    struct bezier_data *bd;
+    bd = ud;
+    a = bezier_curve(a, bd->cx, bd->cy);
+    return (1 - a)*x + a*y;
+}
+
+void gest_behavior_bezier(gest_d *g, SKFLT cx, SKFLT cy)
+{
+    struct bezier_data *bd;
+    g->curtarget->tick = bezier;
+    g->curtarget->ud = gest_alloc(g, sizeof(struct bezier_data));
+    bd = (struct bezier_data *)g->curtarget->ud;
+    bd->cx = cx;
+    bd->cy = cy;
 }
 #+END_SRC
 * Temporal Weight Commands
