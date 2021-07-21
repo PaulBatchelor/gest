@@ -75,6 +75,7 @@ Defining =GEST_PRIVATE= will expose the core gest struct.
 #+NAME: gest.c
 #+BEGIN_SRC c :tangle gest.c
 #include <stdlib.h>
+#include <math.h>
 #define GEST_PRIVATE
 #include "gest.h"
 <<enums>>
@@ -720,13 +721,40 @@ void gest_behavior_smallgliss(gest_d *g)
 }
 #+END_SRC
 
-** TODO Exponential behavior
+** Exponential behavior
 Exponential: converts the last target to use exponential
 behavior with slope =slope=.
 
 #+NAME: funcdefs
 #+BEGIN_SRC c
 void gest_behavior_exponential(gest_d *g, SKFLT slope);
+#+END_SRC
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_behavior_step(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static SKFLT exponential(gest_d *g, SKFLT x, SKFLT y, SKFLT a, void *ud)
+{
+    SKFLT *s;
+
+    s = ud;
+
+    a = (1.0 - exp(a * (*s))) / (1 - exp(*s));
+    return (1 - a)*x + a*y;
+}
+
+void gest_behavior_exponential(gest_d *g, SKFLT slope)
+{
+    SKFLT *s;
+    g->curtarget->tick = exponential;
+    g->curtarget->ud = gest_alloc(g, sizeof(SKFLT));
+    s = (SKFLT *)g->curtarget->ud;
+    *s = slope;
+}
 #+END_SRC
 * Temporal Weight Commands
 ** mass
