@@ -89,9 +89,14 @@ static lil_value_t l_gest_end(lil_t lil,
     rc = sk_core_generic_pop(core, (void **)&g);
     SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
 
-    gest_end(g);
+    rc = gest_end(g);
+
+    if (rc) {
+        lil_set_error(lil, "phrase did not close properly\n");
+    }
 
     sk_core_generic_push(core, g);
+
     return NULL;
 }
 

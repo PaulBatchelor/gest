@@ -76,6 +76,7 @@ Defining =GEST_PRIVATE= will expose the core gest struct.
 #+BEGIN_SRC c :tangle gest.c
 #include <stdlib.h>
 #include <math.h>
+#include <stdio.h>
 #define GEST_PRIVATE
 #include "gest.h"
 <<enums>>
@@ -477,6 +478,15 @@ have every child node capped with a target.
 #+BEGIN_SRC c
 int gest_end(gest_d *g)
 {
+    int count;
+    gest_node *top;
+
+    top = g->phrase_selected->top;
+
+    count = node_count(top, NULL);
+
+    if (count != top->modifier) return 1;
+
     return 0;
 }
 #+END_SRC
@@ -556,7 +566,6 @@ int gest_addtarget(gest_d *g, SKFLT val)
         g->toptarget = t;
     }
 
-
     if (t == NULL) {
         return 1;
     }
@@ -564,6 +573,7 @@ int gest_addtarget(gest_d *g, SKFLT val)
     if (g->curtarget != NULL) {
         g->curtarget->next = t;
     }
+
     g->curtarget = t;
     t->value = val;
     gest_behavior_linear(g);
@@ -1482,7 +1492,9 @@ with a modifier greater than 1.
 
 If the next node happens to be a monoramp with a modifier
 greater than 1, it will also apply modifications. But should
-be handled inside of =dive_to_target=.
+be handled inside of =dive_to_target=. If the node is already
+a target with a monoramp >1, this gets applied here as a
+special exception.
 
 #+NAME: find_next_node
 #+BEGIN_SRC c
@@ -1544,6 +1556,9 @@ while (next == NULL) {
         /* continguous nodes on the same level don't have these */
         if (next->target == NULL) {
             next = dive_to_target(g, next);
+        } else if (next->type == NODE_MONORAMP && next->modifier > 1) {
+            /* next node is on same level but is monoramp */
+            apply_modifier(g, next);
         }
 
         set_nxttarget(g, next->target);
