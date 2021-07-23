@@ -68,7 +68,7 @@ regset zz 0
 gensine [tabnew 8192]
 
 mtof [sequence]
-fmpair zz zz [param 1] [param 1] [modindex] [param 0]
+fmpair zz zz [param 1] [param 1] [param 1] [param 0]
 mul zz 0.5
 
 wavout zz "test.wav"

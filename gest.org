@@ -351,20 +351,6 @@ static void set_curnode(gest_d *g, gest_node *node)
     g->curnode = node;
 }
 #+END_SRC
-** Phasor Error
-Any time the ramp/phasor wraps around, the carry over
-gets saved to an error variable, which is factored
-into the next ramp.
-
-#+NAME: gest_d
-#+BEGIN_SRC c
-SKFLT error;
-#+END_SRC
-
-#+NAME: init
-#+BEGIN_SRC c
-g->error = 0;
-#+END_SRC
 ** Node Position
 Needed for debugging.
 
@@ -421,6 +407,41 @@ SKFLT gest_inertia_get(gest_d *g)
 {
     return g->inertia;
 }
+#+END_SRC
+** Position In Time
+Used for clock drift compensation.
+Measured in beats, and with an accumulator.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+int beat;
+SKFLT t;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+g->beat = 0;
+g->t = 0;
+#+END_SRC
+** Please Wait Flag
+#+NAME: gest_d
+#+BEGIN_SRC c
+int please_wait;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+g->please_wait = 0;
+#+END_SRC
+** Correction
+#+NAME: gest_d
+#+BEGIN_SRC c
+SKFLT correction;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+g->correction = 1.0;
 #+END_SRC
 * Core Commands
 Some core commands for programming.
@@ -1408,14 +1429,96 @@ static SKFLT ramptree_step(gest_d *g, SKFLT inc, int reset)
 
     if (g->phrase_selected == NULL) return phs;
 
+    <<beat_checkin>>
+
+    inc *= g->phrase_selected->mod * g->correction;
+
     <<set_the_output>>
     <<update_targets>>
     <<update_phase>>
     <<check_and_update>>
 
     g->phs = phs;
+    g->t += inc;
 
     return out;
+}
+#+END_SRC
+** Beat Check-in
+In order to combat clock drift, a phrase "checks in" every
+time conductor signal resets, which is an indicator of the
+new beat. Every time a new beat occurs, the status of the
+phrase is figured out, and handled accordingly.
+
+Clock drift naturally occurs within Gest because it
+resynthesizes a new timing signal based on the external
+conductor signal. Left unchecked, Gestures will eventually
+fall out of time with the conductor due to the fact that
+they are marching to the beat of their own drum.
+
+The coarse way that clock drift is managed is by keeping
+drift localized within the phrase. A phrase is allocated
+to be a fixed number of beats. When the conductor goes
+on to the next beat, the current phrase, wherever it may
+be in its performance, is discarded, and the clock drift
+debt is reset.
+
+Gestures are a game of constant imprecision. Their timing
+can either be late or early, but never quite on time.
+Early gestures occur when a
+phrase finishes before the conductor. When this happens, it
+is told to wait, returning 1 until the first downbeat of the
+next phrase. Late
+phrases don't quite make it to the end of their gesture.
+When this happens, the phrase bails and jumps to the next
+one. The hope is that they are close enough to prevent an
+audible glitch.
+
+During the check-in, the ideal position, obtained from
+the beat counter and known as the =goal=,
+can be compared with the actual position =t=. These two
+values can be used to create a course correction factor,
+which allows the gesture to slow down or speed up to more
+closely match the conductor signal.
+
+#+NAME: beat_checkin
+#+BEGIN_SRC c
+if (reset) {
+    int limit;
+    SKFLT goal;
+
+    limit = g->phrase_selected->top->modifier;
+    g->beat++;
+    goal = (SKFLT) g->beat / limit;
+
+    if (g->t > 0) g->correction = goal / g->t;
+
+    if (g->beat >= limit) {
+        gest_node *next;
+
+        g->phrase_selected = g->phrase_selected->next;
+
+        g->beat = 0;
+        g->t = 0;
+        g->phs = 0;
+        g->please_wait = 0;
+        g->correction = 1.0;
+
+        if (g->phrase_selected == NULL) {
+            return phs;
+        }
+
+        next = g->phrase_selected->top;
+        /* reset modifier */
+        g->num = 1;
+        g->den = 1;
+        next = dive_to_target(g, next);
+        set_nxttarget(g, next->target);
+        set_curnode(g, next);
+        return phs;
+    }
+} else if (g->please_wait) {
+    return 1.0;
 }
 #+END_SRC
 ** Setting the Output
@@ -1450,8 +1553,11 @@ update the existing phase.
 
 #+NAME: update_phase
 #+BEGIN_SRC c
-phs += inc * ((SKFLT)g->num / g->den) * g->phrase_selected->mod;
-g->error = 0;
+{
+SKFLT i;
+i = inc * ((SKFLT)g->num / g->den);
+phs += i;
+}
 #+END_SRC
 
 The phase is then checked to see if it has exceeded 1.
@@ -1474,9 +1580,11 @@ Traversal starts large and gets smaller.
 To begin, check and see if the next node happens to be in
 the next phrase. That would mean the currently selected
 node is the right-most node (no nodes after it)
-in the top of the tree. If this is true, the next phrase is
-found (assuming there is one), and configured to point to
-the first one.
+in the top of the tree. If this is true, it is time to
+*wait* for the next phrase on the next down beat. If the
+next phrase is being found here, it has arrived a tad too
+early (which is actually better than being a
+tad too late, as it turns out. It's one or the other here).
 
 If it's not the top of the tree, there is a general check
 to see if the current node is the right-most node relative
@@ -1513,19 +1621,9 @@ while (next == NULL) {
         /* are we at the end */
         /* if so, go to next phrase */
         if (top->next == NULL) {
-            g->phrase_selected = g->phrase_selected->next;
-            /* children points to first child node */
-
-            if (g->phrase_selected == NULL) {
-                break;
-            }
-
-            next = g->phrase_selected->top;
-            /* reset modifier */
-            g->num = 1;
-            g->den = 1;
-            next = dive_to_target(g, next);
-            set_nxttarget(g, next->target);
+            /* wait for the downbeat of the next phrase */
+            g->please_wait = 1;
+            break;
         } else {
             /* go to next child in top polyramp node */
             next = top->next;
@@ -1578,7 +1676,6 @@ the roundoff error is stored in the error variable.
 #+NAME: wraparound
 #+BEGIN_SRC c
 while (phs > 1) phs--;
-g->error = phs;
 phs = 0;
 #+END_SRC
 ** Handling Roundoff Error in Phrases
@@ -2124,9 +2221,10 @@ if (conductor < g->last) {
 
 g->last_inc = inc;
 
+/* TODO: needed? */
 if (g->phs == -1) {
     g->phs = 0;
-    reset = 1;
+    reset = 0;
 }
 
 g->last = conductor;
