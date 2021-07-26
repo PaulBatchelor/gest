@@ -781,8 +781,8 @@ void gest_behavior_exponential(gest_d *g, SKFLT slope)
 {
     SKFLT *s;
     g->curtarget->tick = exponential;
-    g->curtarget->ud = gest_alloc(g, sizeof(SKFLT));
-    s = (SKFLT *)g->curtarget->ud;
+    g->curtarget->aux = gest_alloc(g, sizeof(SKFLT));
+    s = (SKFLT *)g->curtarget->aux;
     *s = slope;
 }
 #+END_SRC
@@ -871,8 +871,8 @@ void gest_behavior_bezier(gest_d *g, SKFLT cx, SKFLT cy)
 {
     struct bezier_data *bd;
     g->curtarget->tick = bezier;
-    g->curtarget->ud = gest_alloc(g, sizeof(struct bezier_data));
-    bd = (struct bezier_data *)g->curtarget->ud;
+    g->curtarget->aux = gest_alloc(g, sizeof(struct bezier_data));
+    bd = (struct bezier_data *)g->curtarget->aux;
     bd->cx = cx;
     bd->cy = cy;
 }
@@ -1922,8 +1922,9 @@ is one coming next).
 struct gest_target {
     SKFLT value;
     SKFLT (*tick)(gest_d *, SKFLT, void *);
-    SKFLT (*mix)(gest_d *, SKFLT, SKFLT, SKFLT, void *);
-    void *ud;
+    void *aux; /* aux data for behavior function */
+    SKFLT (*mix)(gest_d *, SKFLT, SKFLT, SKFLT);
+    void *ud; /* user data attached to this target */
     gest_target *next;
     <<temporal_weight>>
 };
@@ -1941,6 +1942,7 @@ void gest_target_init(gest_target *t)
     t->value = 0;
     t->tick = NULL;
     t->ud = NULL;
+    t->aux = NULL;
     t->next = NULL;
     t->mix = default_mix;
     <<init_temporal_weight>>
@@ -1949,16 +1951,12 @@ void gest_target_init(gest_target *t)
 
 #+NAME: static_funcdefs
 #+BEGIN_SRC c
-static SKFLT default_mix(gest_d *g,
-                         SKFLT x, SKFLT y, SKFLT a,
-                         void *ud);
+static SKFLT default_mix(gest_d *g, SKFLT x, SKFLT y, SKFLT a);
 #+END_SRC
 
 #+NAME: funcs
 #+BEGIN_SRC c
-static SKFLT default_mix(gest_d *g,
-                         SKFLT x, SKFLT y, SKFLT a,
-                         void *ud)
+static SKFLT default_mix(gest_d *g, SKFLT x, SKFLT y, SKFLT a)
 {
     return (1 - a)*x + a*y;
 }
@@ -2226,6 +2224,10 @@ A phase reset is detected if the current conductor value
 is less than the previous. A reset flag is set, and
 the sign of the increment value is flipped to be positive.
 
+For reasons I don't understand at the moment, it seems
+that the first reset found at initialization needs to be
+discounted, so there is logic built in here to handle that.
+
 #+NAME: analysis
 #+BEGIN_SRC c
 inc = conductor - g->last;
@@ -2238,7 +2240,7 @@ if (conductor < g->last) {
 
 g->last_inc = inc;
 
-/* TODO: needed? */
+/* discount reset found at initial sample */
 if (g->phs == -1) {
     g->phs = 0;
     reset = 0;
@@ -2263,10 +2265,8 @@ the output gesture.
 #+NAME: apply_targets
 #+BEGIN_SRC c
 if (g->curtarget != NULL) {
-    out = g->curtarget->tick(g, out, g->curtarget->ud);
-    out = g->curtarget->mix(g,
-                            g->curval, g->nxtval, out,
-                            g->curtarget->ud);
+    out = g->curtarget->tick(g, out, g->curtarget->aux);
+    out = g->curtarget->mix(g, g->curval, g->nxtval, out);
 }
 #+END_SRC
 
