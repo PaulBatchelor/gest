@@ -658,9 +658,9 @@ void gest_behavior_linear(gest_d *g);
 
 #+NAME: funcs
 #+BEGIN_SRC c
-static SKFLT linear(gest_d *g, SKFLT x, SKFLT y, SKFLT a, void *ud)
+static SKFLT linear(gest_d *g, SKFLT a, void *ud)
 {
-    return (1 - a)*x + a*y;
+    return a;
 }
 
 void gest_behavior_linear(gest_d *g)
@@ -679,9 +679,9 @@ void gest_behavior_step(gest_d *g);
 
 #+NAME: funcs
 #+BEGIN_SRC c
-static SKFLT step(gest_d *g, SKFLT x, SKFLT y, SKFLT a, void *ud)
+static SKFLT step(gest_d *g, SKFLT a, void *ud)
 {
-    return x;
+    return 0;
 }
 
 void gest_behavior_step(gest_d *g)
@@ -705,7 +705,7 @@ void gest_behavior_gliss(gest_d *g);
 
 #+NAME: funcs
 #+BEGIN_SRC c
-static SKFLT gliss(gest_d *g, SKFLT x, SKFLT y, SKFLT a, void *ud)
+static SKFLT gliss(gest_d *g, SKFLT a, void *ud)
 {
     if (a < 0.5) {
         a = 0;
@@ -715,7 +715,8 @@ static SKFLT gliss(gest_d *g, SKFLT x, SKFLT y, SKFLT a, void *ud)
         a *= 2;
         a = a * a * a;
     }
-    return (1 - a)*x + a*y;
+
+    return a;
 }
 
 void gest_behavior_gliss(gest_d *g)
@@ -733,7 +734,7 @@ void gest_behavior_smallgliss(gest_d *g);
 
 #+NAME: funcs
 #+BEGIN_SRC c
-static SKFLT smallgliss(gest_d *g, SKFLT x, SKFLT y, SKFLT a, void *ud)
+static SKFLT smallgliss(gest_d *g, SKFLT a, void *ud)
 {
     if (a < 0.97) {
         a = 0;
@@ -743,7 +744,7 @@ static SKFLT smallgliss(gest_d *g, SKFLT x, SKFLT y, SKFLT a, void *ud)
         a /= 0.03;
         a = a * a * a;
     }
-    return (1 - a)*x + a*y;
+    return a;
 }
 
 void gest_behavior_smallgliss(gest_d *g)
@@ -751,7 +752,6 @@ void gest_behavior_smallgliss(gest_d *g)
     g->curtarget->tick = smallgliss;
 }
 #+END_SRC
-
 ** Exponential
 Exponential: converts the last target to use exponential
 behavior with slope =slope=.
@@ -768,14 +768,13 @@ void gest_behavior_step(gest_d *g);
 
 #+NAME: funcs
 #+BEGIN_SRC c
-static SKFLT exponential(gest_d *g, SKFLT x, SKFLT y, SKFLT a, void *ud)
+static SKFLT exponential(gest_d *g, SKFLT a, void *ud)
 {
     SKFLT *s;
 
     s = ud;
 
-    a = (1.0 - exp(a * (*s))) / (1 - exp(*s));
-    return (1 - a)*x + a*y;
+    return (1.0 - exp(a * (*s))) / (1 - exp(*s));
 }
 
 void gest_behavior_exponential(gest_d *g, SKFLT slope)
@@ -860,13 +859,12 @@ static SKFLT bezier_curve(SKFLT xpos, SKFLT cx, SKFLT cy)
     return val;
 }
 
-static SKFLT bezier(gest_d *g, SKFLT x, SKFLT y, SKFLT a, void *ud)
+static SKFLT bezier(gest_d *g, SKFLT a, void *ud)
 {
 
     struct bezier_data *bd;
     bd = ud;
-    a = bezier_curve(a, bd->cx, bd->cy);
-    return (1 - a)*x + a*y;
+    return bezier_curve(a, bd->cx, bd->cy);
 }
 
 void gest_behavior_bezier(gest_d *g, SKFLT cx, SKFLT cy)
@@ -1923,7 +1921,7 @@ is one coming next).
 #+BEGIN_SRC c
 struct gest_target {
     SKFLT value;
-    SKFLT (*tick)(gest_d *, SKFLT, SKFLT, SKFLT, void *);
+    SKFLT (*tick)(gest_d *, SKFLT, void *);
     void *ud;
     gest_target *next;
     <<temporal_weight>>
@@ -2246,10 +2244,8 @@ the output gesture.
 #+NAME: apply_targets
 #+BEGIN_SRC c
 if (g->curtarget != NULL) {
-    out = g->curtarget->tick(g,
-                             g->curval, g->nxtval,
-                             out,
-                             g->curtarget->ud);
+    out = g->curtarget->tick(g, out, g->curtarget->ud);
+    out = (1 - out)*g->curval + out * g->nxtval;
 }
 #+END_SRC
 
