@@ -1922,6 +1922,7 @@ is one coming next).
 struct gest_target {
     SKFLT value;
     SKFLT (*tick)(gest_d *, SKFLT, void *);
+    SKFLT (*mix)(gest_d *, SKFLT, SKFLT, SKFLT, void *);
     void *ud;
     gest_target *next;
     <<temporal_weight>>
@@ -1941,7 +1942,25 @@ void gest_target_init(gest_target *t)
     t->tick = NULL;
     t->ud = NULL;
     t->next = NULL;
+    t->mix = default_mix;
     <<init_temporal_weight>>
+}
+#+END_SRC
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static SKFLT default_mix(gest_d *g,
+                         SKFLT x, SKFLT y, SKFLT a,
+                         void *ud);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static SKFLT default_mix(gest_d *g,
+                         SKFLT x, SKFLT y, SKFLT a,
+                         void *ud)
+{
+    return (1 - a)*x + a*y;
 }
 #+END_SRC
 ** Binding Targets to Ramp Tree Nodes
@@ -2245,7 +2264,9 @@ the output gesture.
 #+BEGIN_SRC c
 if (g->curtarget != NULL) {
     out = g->curtarget->tick(g, out, g->curtarget->ud);
-    out = (1 - out)*g->curval + out * g->nxtval;
+    out = g->curtarget->mix(g,
+                            g->curval, g->nxtval, out,
+                            g->curtarget->ud);
 }
 #+END_SRC
 
