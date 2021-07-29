@@ -1,15 +1,19 @@
 func mkgesture {} {
+    set lo [expr 60 - 12]
+    set hi [expr 72 - 12]
+    set mid [expr 62 - 12]
+
     gest_begin 3 3
     gest_polyramp 2
-    gest_target 72
-    gest_target 60
+    gest_target $hi
+    gest_target $lo
 
-    gest_target 62
+    gest_target $mid
 
     gest_polyramp 3
-    gest_target 60
-    gest_target 72
-    gest_target 60
+    gest_target $lo
+    gest_target $hi
+    gest_target $lo
     gest_exponential -2
     gest_end
 }
@@ -123,6 +127,7 @@ regset [gest_new] 1
 
 param 60
 gestweight [regget 1]
+#param 0
 mul zz 25
 add zz zz
 
@@ -130,8 +135,6 @@ mul zz [expr 1.0 / 60]
 phasor zz 0
 hold zz
 regset zz 0
-
-#gensine [tabnew 8192]
 
 regget 1
 dup
@@ -149,11 +152,6 @@ gesticulate zz zz
 sine 6 0.1
 add zz zz
 mtof zz
-#fmpair zz zz \
-#    [param 1] \
-#    [param 1] \
-#    [param 1] \
-#    [param 0]
 
 glottis zz 0.9
 tractxy zz [rline 0.01 0.9 4] [rline 0.01 0.7 3]
@@ -164,10 +162,10 @@ mul zz 0.3
 dup
 dup
 
-bigverb zz zz 0.9 10000
+bigverb zz zz 0.93 9000
 drop
 dcblocker zz
-mul zz 0.05
+mul zz 0.08
 
 add zz zz
 

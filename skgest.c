@@ -152,7 +152,7 @@ int pw_node_gestweight(pw_node *node, gest_d *g)
     rc = pw_node_get_patch(node, &patch);
     if (rc != PW_OK) return rc;
 
-    rc = pw_memory_alloc(patch, sizeof(struct gest_n), &ud);
+    rc = pw_memory_alloc(patch, sizeof(struct gestweight_n), &ud);
     if (rc != PW_OK) return rc;
     gw = (struct gestweight_n *)ud;
 
