@@ -14,7 +14,7 @@ func mkgesture {} {
     gest_target $lo
     gest_target $hi
     gest_target $lo
-    gest_exponential -2
+    gest_exponential 2
     gest_end
 }
 
@@ -123,11 +123,40 @@ func weighttest {} {
     gest_end
 }
 
+func expression_none {} {
+    gest_begin 3 3
+    gest_monoramp 2
+    gest_target 0
+    gest_exponential 3
+    gest_target 0.0
+    gest_step
+    gest_end
+}
+
+func expression_mid {} {
+    gest_begin 3 3
+    gest_monoramp 2
+    gest_target 0
+    gest_exponential 3
+    gest_target 0.5
+    gest_step
+    gest_end
+}
+
+func expression_hi {} {
+    gest_begin 3 3
+    gest_monoramp 2
+    gest_target 0
+    gest_exponential 3
+    gest_target 1
+    gest_gliss
+    gest_end
+}
+
 regset [gest_new] 1
 
 param 60
 gestweight [regget 1]
-#param 0
 mul zz 25
 add zz zz
 
@@ -149,7 +178,21 @@ gest_finish
 regget 0
 gesticulate zz zz
 
-sine 6 0.1
+gest_new
+dup
+expression_none
+expression_mid
+expression_hi
+expression_hi
+gest_loopit
+gest_finish
+regget 0
+gesticulate zz zz
+hold zz
+regset zz 3
+
+
+sine [scale [regget 3] 6 7] [scale [regget 3] 0 0.4]
 add zz zz
 mtof zz
 
@@ -157,20 +200,23 @@ glottis zz 0.9
 tractxy zz [rline 0.01 0.9 4] [rline 0.01 0.7 3]
 valp1 zz 5000
 
-mul zz 0.3
+mul zz 0.8
 
 dup
+mul zz [scale [regget 3] 0.1 1]
 dup
 
-bigverb zz zz 0.93 9000
+bigverb zz zz 0.97 9000
 drop
 dcblocker zz
-mul zz 0.08
+mul zz 0.2
 
 add zz zz
 
 wavout zz "test.wav"
 
 regget 0
+unhold zz
+regget 3
 unhold zz
 computes 30
