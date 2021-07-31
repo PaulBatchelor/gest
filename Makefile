@@ -8,7 +8,7 @@ example: $(OBJ) example.o
 	$(CC) $(CFLAGS) $(OBJ) example.o -o $@ -lsndkit
 
 lilgest: $(OBJ) lilgest.o l_gest.o
-	$(CC) $(CFLAGS) $(OBJ) l_gest.o lilgest.o -o $@ -lsndkit
+	$(CC) $(CFLAGS) $(OBJ) l_gest.o lilgest.o -o $@ -lsndkit -lm
 
 gest.c: gest.org
 	worgle -g -Werror $<
