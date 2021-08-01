@@ -236,6 +236,22 @@ static void set_curtarget(gest_d *g, gest_target *target)
 }
 #+END_SRC
 
+
+TODO: words.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+gest_target * gest_curtarget(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+gest_target * gest_curtarget(gest_d *g)
+{
+    return g->curtarget;
+}
+#+END_SRC
+
 A next target is needed because during computation, the
 previous state is always used, and therefore
 the previous targets are needed.
@@ -442,6 +458,35 @@ SKFLT correction;
 #+NAME: init
 #+BEGIN_SRC c
 g->correction = 1.0;
+#+END_SRC
+** User Data
+#+NAME: gest_d
+#+BEGIN_SRC c
+void *ud;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+g->ud = NULL;
+#+END_SRC
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_data_set(gest_d *g, void *ud);
+void * gest_data_get(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_data_set(gest_d *g, void *ud)
+{
+    g->ud = ud;
+}
+
+void * gest_data_get(gest_d *g)
+{
+    return g->ud;
+}
 #+END_SRC
 * Core Commands
 Some core commands for programming.
@@ -2204,6 +2249,53 @@ static void apply_weight(gest_d *g, gest_target *t)
 {
     update_weightval(t->mass, t->mass_mode, &g->mass);
     update_weightval(t->inertia, t->inertia_mode, &g->inertia);
+}
+#+END_SRC
+** Set Mix Callback
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_target_mix(gest_target *t,
+                     SKFLT (*mix)(gest_d *, SKFLT, SKFLT, SKFLT));
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_target_mix(gest_target *t,
+                     SKFLT (*mix)(gest_d *, SKFLT, SKFLT, SKFLT))
+{
+    t->mix = mix;
+}
+#+END_SRC
+** Set/get user data
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_target_data_set(gest_target *t, void *ud);
+void* gest_target_data_get(gest_target *t);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_target_data_set(gest_target *t, void *ud)
+{
+    t->ud = ud;
+}
+
+void* gest_target_data_get(gest_target *t)
+{
+    return t->ud;
+}
+#+END_SRC
+** Get next target
+#+NAME: funcdefs
+#+BEGIN_SRC c
+gest_target* gest_target_next(gest_target *t);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+gest_target* gest_target_next(gest_target *t)
+{
+    return t->next;
 }
 #+END_SRC
 * Computation
