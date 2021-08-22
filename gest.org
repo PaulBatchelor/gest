@@ -488,6 +488,20 @@ void * gest_data_get(gest_d *g)
     return g->ud;
 }
 #+END_SRC
+** Previous Output Value
+The =prevout= variable caches the output of the
+previously computed sample. This is useful for
+situations when gest gets paused mid-gesture.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+SKFLT prevout;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+g->prevout = 0;
+#+END_SRC
 * Core Commands
 Some core commands for programming.
 ** Begin
@@ -2307,6 +2321,42 @@ a conductor phasor signal =conductor=.
 SKFLT gest_tick(gest_d *g, SKFLT conductor);
 #+END_SRC
 
+#+NAME: funcs
+#+BEGIN_SRC c
+SKFLT gest_tick(gest_d *g, SKFLT conductor)
+{
+    SKFLT out;
+    SKFLT inc;
+    int reset;
+
+    out = 0;
+
+    <<ignore_negative_values>>
+    <<analysis>>
+    <<compute_ramptree>>
+    <<apply_targets>>
+    <<update_previous_value>>
+
+    g->prevout = out;
+    return out;
+}
+#+END_SRC
+
+Negative values in the conductor hold no meaning, so if one
+pops up, gesture computation is ignored and the previously
+cached output value is returned, effectively "pausing" gest.
+This feature was added more recently so that gest could
+work well with a sndkit algorithm called =clkphs=, which
+converts a clock signal into a gest-compatible phasor
+signal. clkphs requires some initial time in the beginning
+to compute the first period of the phasor, and during that
+time it returns -1.
+
+#+NAME: ignore_negative_values
+#+BEGIN_SRC c
+if (conductor < 0) return g->prevout;
+#+END_SRC
+
 Analysis. The conductor signal is analyzed, and used to
 drive the timing in the Ramp Tree. The previous conductor
 signal is subtracted from the current one to produce
@@ -2362,20 +2412,10 @@ if (g->curtarget != NULL) {
 }
 #+END_SRC
 
-#+NAME: funcs
+Right before the value is returned, the current output
+is cached in the =prevout= variable.
+
+#+NAME: update_previous_value
 #+BEGIN_SRC c
-SKFLT gest_tick(gest_d *g, SKFLT conductor)
-{
-    SKFLT out;
-    SKFLT inc;
-    int reset;
-
-    out = 0;
-
-    <<analysis>>
-    <<compute_ramptree>>
-    <<apply_targets>>
-
-    return out;
-}
+g->prevout = out;
 #+END_SRC
