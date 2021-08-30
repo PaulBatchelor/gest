@@ -756,7 +756,7 @@ first half is 0, and the second half gets
 normalized to be 0-1 with a cubic slope. This
 then gets interpolated between the x and y target
 values.
-
+*** Regular Gliss
 #+NAME: funcdefs
 #+BEGIN_SRC c
 void gest_behavior_gliss(gest_d *g);
@@ -783,8 +783,10 @@ void gest_behavior_gliss(gest_d *g)
     g->curtarget->tick = gliss;
 }
 #+END_SRC
-
-=smallgliss= does this, but smaller scale.
+*** Small Gliss
+=smallgliss= does this, but smaller scale. Best for
+instruments that want the minimal amount of smoothing
+done to preserve a step-sequenced sound.
 
 #+NAME: funcdefs
 #+BEGIN_SRC c
@@ -809,6 +811,34 @@ static SKFLT smallgliss(gest_d *g, SKFLT a, void *ud)
 void gest_behavior_smallgliss(gest_d *g)
 {
     g->curtarget->tick = smallgliss;
+}
+#+END_SRC
+*** Medium Gliss
+Ideally tuned for voice.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_behavior_mediumgliss(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static SKFLT mediumgliss(gest_d *g, SKFLT a, void *ud)
+{
+    if (a < 0.75) {
+        a = 0;
+    } else {
+        a -= 0.75;
+        if (a < 0) a = 0;
+        a /= 0.25;
+        a = a * a * a;
+    }
+    return a;
+}
+
+void gest_behavior_mediumgliss(gest_d *g)
+{
+    g->curtarget->tick = mediumgliss;
 }
 #+END_SRC
 ** Exponential
