@@ -684,7 +684,7 @@ void gest_finish(gest_d *g)
     top = dive_to_target(g, g->phrase_top->top);
 
     set_curnode(g, top);
-    set_curtarget(g, top->target);
+    set_curtarget(g, node_target(top));
 }
 #+END_SRC
 ** Loopit
@@ -1491,6 +1491,31 @@ static void apply_modifier(gest_d *g, gest_node *node)
     }
 }
 #+END_SRC
+** Target Getter
+The function =node_target= is used to get
+the target associated with a node. This layer
+of abstraction is needed for metatargets.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_target *node_target(gest_node *node);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_target *node_target(gest_node *node)
+{
+    gest_target *t;
+
+    t = node->target;
+
+    if (node->target != NULL && node->target->get != NULL) {
+        t = node->target->get(node, node->target);
+    }
+
+    return t;
+}
+#+END_SRC
 * Stepping Through The Ramp Tree
 A big part of gest involves stepping through a ramp tree.
 A ramp tree produces a set of normalized ramp values
@@ -1602,7 +1627,7 @@ if (reset) {
         g->num = 1;
         g->den = 1;
         next = dive_to_target(g, next);
-        set_nxttarget(g, next->target);
+        set_nxttarget(g, node_target(next));
         set_curnode(g, next);
         return phs;
     }
@@ -1721,7 +1746,7 @@ while (next == NULL) {
                 next = dive_to_target(g, next);
             }
 
-            set_nxttarget(g, next->target);
+            set_nxttarget(g, node_target(next));
         }
     } else if (top->next == NULL) {
         revert_modifier(g, top->parent);
@@ -1749,7 +1774,7 @@ while (next == NULL) {
         }
 
 
-        set_nxttarget(g, next->target);
+        set_nxttarget(g, node_target(next));
     }
 }
 
@@ -2018,6 +2043,7 @@ struct gest_target {
     SKFLT (*mix)(gest_d *, SKFLT, SKFLT, SKFLT);
     void *ud; /* user data attached to this target */
     gest_target *next;
+    gest_target* (*get)(gest_node *n, gest_target *t);
     <<temporal_weight>>
 };
 #+END_SRC
@@ -2037,6 +2063,7 @@ void gest_target_init(gest_target *t)
     t->aux = NULL;
     t->next = NULL;
     t->mix = default_mix;
+    t->get = NULL;
     <<init_temporal_weight>>
 }
 #+END_SRC
@@ -2337,6 +2364,18 @@ void* gest_target_data_get(gest_target *t)
 #+BEGIN_SRC c
 gest_target* gest_target_next(gest_target *t);
 #+END_SRC
+
+Metatarget rambles to follow here.
+
+When metatargets get involved, this gets tricky.
+As is, this would return the metatarget itself,
+not the target. This wouldn't work for certain
+situations like the vocal tract stuff (which is
+why this function was implemented in the first place).
+
+It was easiest to think that getters would mutate
+state because within gest the next value was
+only retrieved once. But here, it's hard to say.
 
 #+NAME: funcs
 #+BEGIN_SRC c
