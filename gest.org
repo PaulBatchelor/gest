@@ -642,12 +642,12 @@ int gest_addtarget(gest_d *g, SKFLT val)
 
     t = mktarget(g);
 
-    if (g->toptarget == NULL) {
-        g->toptarget = t;
-    }
-
     if (t == NULL) {
         return 1;
+    }
+
+    if (g->toptarget == NULL) {
+        g->toptarget = t;
     }
 
     if (g->curtarget != NULL) {
@@ -1030,6 +1030,7 @@ typedef struct gest_phrase gest_phrase;
 struct gest_phrase {
     gest_node *top;
     SKFLT mod;
+    int beats;
     gest_phrase *next;
 };
 #+END_SRC
@@ -1058,6 +1059,7 @@ static void phrase_init(gest_d *g,
                         int div)
 {
     phrase->mod = 1.0 / beats;
+    phrase->beats = beats;
     phrase->next = NULL;
     phrase->top = mkpolyramp(g, NULL, div);
 }
@@ -1574,7 +1576,7 @@ if (reset) {
     int limit;
     SKFLT goal;
 
-    limit = g->phrase_selected->top->modifier;
+    limit = g->phrase_selected->beats;
     g->beat++;
     goal = (SKFLT) g->beat / limit;
 
@@ -1745,6 +1747,7 @@ while (next == NULL) {
             /* next node is on same level but is monoramp */
             apply_modifier(g, next);
         }
+
 
         set_nxttarget(g, next->target);
     }

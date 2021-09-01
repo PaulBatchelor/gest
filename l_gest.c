@@ -132,7 +132,12 @@ static lil_value_t l_gest_addtarget(lil_t lil,
 
     val = lil_to_double(argv[0]);
 
-    gest_addtarget(g, val);
+    rc = gest_addtarget(g, val);
+
+    if (rc) {
+        lil_set_error(lil, "Could not add target\n");
+        return NULL;
+    }
 
     sk_core_generic_push(core, g);
     return NULL;
