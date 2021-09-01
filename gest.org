@@ -2452,3 +2452,42 @@ is cached in the =prevout= variable.
 #+BEGIN_SRC c
 g->prevout = out;
 #+END_SRC
+* Metatargets
+Work in progress. Metatargets will probably end up in
+a larger category of meta-things, including metaramps
+and metabehaviors. But metatargets come first.
+
+A metatarget is a target containing one or more
+targets inside of itself. Whenever it gets selected
+it can choose one of these targets.
+
+When metatargets are created, the number of
+targets must be known ahead of time. Targets
+created after the metatarget get automatically
+appended to the metatarget until there is no
+more room left.
+
+A metatarget is a special struct contained inside
+of a target (TBD, maybe make aux an array?). It
+contains an array of target pointers, the size,
+and variable storing the current position.
+
+By default, a metatarget will choose targets in sequence.
+This is done by overriding the default "get" callback
+in the target.
+
+Metatarget population in Gest works by caching the
+metatarget inside of the Gest struct. When a metatarget
+is first created, it is set to be that value and
+the position is set to be 0. Every time a target is added,
+it will append to a metatarget instead of binding to a
+phrase and increment the position. When the position reaches
+the limit, the metatarget cache value is emptied.
+
+Nested metatargets will need to use what will be
+a fixed-size metatarget stack.
+When a value is emptied, it is also popped from the stack.
+
+A depth of 8 for
+now will be used. If I need it to go deeper than that,
+it will be changed.
