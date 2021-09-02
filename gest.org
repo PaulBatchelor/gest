@@ -219,12 +219,29 @@ Update the current target with =set_curtarget=.
 static void set_curtarget(gest_d *g, gest_target *target);
 #+END_SRC
 
+With metatargets, things are going to change here. Targets
+will have to be cached, and this is where it will happen.
+This function is going to get a lot more responsibility.
+
+When the current target is set, the next target is must be
+set as well. This will require finding the next node, which
+may be in another phrase.
+
+This is needed because certain tools using gest (like the
+vocal synthesis stuff) need to know precisely what the next
+target is and metatargets can mutate their internal state,
+so therefore must have their next target cached.
+
 #+NAME: funcs
 #+BEGIN_SRC c
 static void set_curtarget(gest_d *g, gest_target *target)
 {
     g->curtarget = target;
     g->curval = target->value;
+
+    /* TODO: find next node */
+
+    /* TODO: find next target from next node */
 
     if (target->next != NULL) {
         g->nxtval = target->next->value;
@@ -266,7 +283,6 @@ static void set_nxttarget(gest_d *g, gest_target *target);
 static void set_nxttarget(gest_d *g, gest_target *target)
 {
     g->nxttarget = target;
-    g->targetondeck = 1;
 }
 #+END_SRC
 ** Stack
@@ -366,6 +382,19 @@ static void set_curnode(gest_d *g, gest_node *node)
 {
     g->curnode = node;
 }
+#+END_SRC
+
+The next node is also stored as well. Will be needed moving
+forward, in order for things like metatargets to work.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+gest_node *nxtnode;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+g->nxtnode = NULL;
 #+END_SRC
 ** Node Position
 Needed for debugging.
@@ -1628,6 +1657,7 @@ if (reset) {
         g->den = 1;
         next = dive_to_target(g, next);
         set_nxttarget(g, node_target(next));
+        g->targetondeck = 1;
         set_curnode(g, next);
         return phs;
     }
@@ -1718,6 +1748,18 @@ be handled inside of =dive_to_target=. If the node is already
 a target with a monoramp >1, this gets applied here as a
 special exception.
 
+---
+
+Things are going to change here! Moving forward, Gest will
+already have found the next phrase and next target by the
+time it has reached here. Instead what will happen is
+that gest will get a signal (targetondeck) to swap to the
+next target, and the next node on deck will be updated to
+be the current node.
+
+This may also turn into a function, rather than a block
+inside another function.
+
 #+NAME: find_next_node
 #+BEGIN_SRC c
 gest_node *next;
@@ -1746,7 +1788,9 @@ while (next == NULL) {
                 next = dive_to_target(g, next);
             }
 
+            g->nxtnode = next;
             set_nxttarget(g, node_target(next));
+            g->targetondeck = 1;
         }
     } else if (top->next == NULL) {
         revert_modifier(g, top->parent);
@@ -1774,11 +1818,13 @@ while (next == NULL) {
         }
 
 
+        g->nxtnode = next;
         set_nxttarget(g, node_target(next));
+        g->targetondeck = 1;
     }
 }
 
-set_curnode(g, next);
+set_curnode(g, g->nxtnode);
 #+END_SRC
 
 A phrase is considered over when it reaches the end of the
@@ -2376,6 +2422,15 @@ why this function was implemented in the first place).
 It was easiest to think that getters would mutate
 state because within gest the next value was
 only retrieved once. But here, it's hard to say.
+
+---
+
+This is going to change. the next target will have
+to be retrieved globally as a cached value
+via =gest_d= rather than direct access in
+the target. This function will have to be changed
+eventually. Keeping it in place until metatargets
+are changed.
 
 #+NAME: funcs
 #+BEGIN_SRC c
