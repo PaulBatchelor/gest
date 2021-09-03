@@ -1760,8 +1760,77 @@ be the current node.
 This may also turn into a function, rather than a block
 inside another function.
 
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_node* find_next_node(gest_d *g, gest_node *top);
+#+END_SRC
+
+The function =find_next_node= will search for the next
+node in the ramp tree, manipulating global state as it
+searches.
+
+The =top= is typically the currently selected node.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_node* find_next_node(gest_d *g, gest_node *top)
+{
+    gest_node *next;
+    gest_node *last_reverted;
+
+    next = NULL;
+    last_reverted = NULL;
+    while (next == NULL) {
+        if (top == g->phrase_selected->top) {
+            /* are we at the end */
+            /* if so, go to next phrase */
+            if (top->next == NULL) {
+                /* wait for the downbeat of the next phrase */
+                g->please_wait = 1;
+                break;
+            } else {
+                /* go to next child in top polyramp node */
+                next = top->next;
+
+                if (next->target == NULL) {
+                    next = dive_to_target(g, next);
+                }
+            }
+        } else if (top->next == NULL) {
+            revert_modifier(g, top->parent);
+            last_reverted = top->parent;
+            top = top->parent;
+        } else {
+            next = top->next;
+
+            /* if top is a monoramp >1, revert it */
+
+            if (top != last_reverted) {
+                if (top->type == NODE_MONORAMP && top->modifier > 1) {
+                    /* revert the monoramp */
+                    revert_modifier(g, top);
+                }
+            }
+
+            /* dive_to_target applies modifiers */
+            /* continguous nodes on the same level don't have these */
+            if (next->target == NULL) {
+                next = dive_to_target(g, next);
+            } else if (next->type == NODE_MONORAMP && next->modifier > 1) {
+                /* next node is on same level but is monoramp */
+                apply_modifier(g, next);
+            }
+
+        }
+    }
+
+    return next;
+}
+#+END_SRC
+
 #+NAME: find_next_node
 #+BEGIN_SRC c
+#if 0
 gest_node *next;
 gest_node *top;
 gest_node *last_reverted;
@@ -1822,6 +1891,13 @@ while (next == NULL) {
         set_nxttarget(g, node_target(next));
         g->targetondeck = 1;
     }
+}
+#endif
+
+g->nxtnode = find_next_node(g, g->curnode);
+if (g->nxtnode != NULL) {
+    set_nxttarget(g, node_target(g->nxtnode));
+    g->targetondeck = 1;
 }
 
 set_curnode(g, g->nxtnode);
