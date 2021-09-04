@@ -99,6 +99,7 @@ typedef struct gest_d gest_d;
 <<struct_ramptree>>
 <<struct_phrase>>
 <<struct_collection>>
+<<gest_state>>
 struct gest_d {
     <<gest_d>>
 };
@@ -531,6 +532,108 @@ SKFLT prevout;
 #+BEGIN_SRC c
 g->prevout = 0;
 #+END_SRC
+** TODO next target state
+The variable =nxtstate= stores the state information
+needed for the next node.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+gest_state nxtstate;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+init_state(&g->nxtstate);
+#+END_SRC
+
+Metatargets change things up. Before metatargets,
+it used to be that targets were things that wouldn't
+change, and this made logic and flow very simpler.
+Metatargets can change their targets. Because of this,
+there is a need to introduce cached states.
+
+Basically, when the next target is acquired, it takes
+a snapshot of that state, which can then be applied
+without any traversal or searching.
+
+State is represetned by the struct =gest_state=.
+
+#+NAME: typedefs
+#+BEGIN_SRC c
+typedef struct gest_state gest_state;
+#+END_SRC
+
+State includes the target, the node belonging to
+that target, the modifier (representation as rational
+value with numerator/denominator integers), and the phrase.
+
+#+NAME: gest_state
+#+BEGIN_SRC c
+struct gest_state {
+    gest_target *target;
+    gest_node *node;
+    gest_phrase *phrase;
+    int num;
+    int den;
+};
+#+END_SRC
+
+Applying a state to gest can be done with =apply_state=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void apply_state(gest_d *g, gest_state *s);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void apply_state(gest_d *g, gest_state *s)
+{
+    g->num = s->num;
+    g->den = s->den;
+    set_curtarget(g, s->target);
+    set_curnode(g, s->node);
+    g->phrase_selected = s->phrase;
+}
+#+END_SRC
+
+Saving a state from gest can be done with =save_state=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void save_state(gest_d *g, gest_state *s);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void save_state(gest_d *g, gest_state *s)
+{
+    s->num = g->num;
+    s->den = g->den;
+    s->phrase = g->phrase_selected;
+    s->target = g->curtarget;
+    s->node = g->curnode;
+}
+#+END_SRC
+
+Initialize state with =init_state=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void init_state(gest_state *s);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void init_state(gest_state *s)
+{
+    s->num = 1;
+    s->den = 1;
+    s->phrase = NULL;
+    s->target = NULL;
+    s->node = NULL;
+}
+#+END_SRC
 * Core Commands
 Some core commands for programming.
 ** Begin
@@ -567,6 +670,8 @@ void gest_begin(gest_d *g, int beats, int div)
     }
 
     g->phrase_selected = phrase;
+
+    /* TODO make this a targetondeck flag */
     set_curnode(g, g->phrase_selected->top);
 }
 #+END_SRC
@@ -1637,6 +1742,8 @@ if (reset) {
     if (g->t > 0) g->correction = goal / g->t;
 
     if (g->beat >= limit) {
+        /* TODO: trigger targetondeck flag here */
+        /* node of next phrase should already be found at this point */
         gest_node *next;
 
         g->phrase_selected = g->phrase_selected->next;
@@ -1659,6 +1766,7 @@ if (reset) {
         set_nxttarget(g, node_target(next));
         g->targetondeck = 1;
         set_curnode(g, next);
+
         return phs;
     }
 } else if (g->please_wait) {
@@ -1677,9 +1785,27 @@ call to =ramptree_step=.
 #+BEGIN_SRC c
 out = g->phs;
 #+END_SRC
-** Updating Targets
+** Updating Targets (Currently Subject to change)
 If any targets were slotted to be updated in the previous
 call, update them now, then clear the flag.
+
+---
+
+Moving forward, the =targetondeck= flag will not only be
+used to change the target, but also the state information
+that comes with the target, such as the node, the phrase,
+and the conductor modifier associated with the target.
+
+It is also here that the next node is found. Information
+for the next node needs to be immediately available, as
+certain tools using and extending gest (such as the vocal
+tract interpolation work) rely on knowing about
+the next target for it to work properly.
+
+It is assumed that by the time =targetondeck= is found,
+the next node is already in place (presumably
+from the last time targetondeck was set, or initialization),
+and just needs to be swapped in.
 
 #+NAME: update_targets
 #+BEGIN_SRC c
@@ -1687,8 +1813,18 @@ if (g->targetondeck) {
     g->targetondeck = 0;
     set_curtarget(g, g->nxttarget);
     g->nxttarget = NULL;
+
+    /* TODO: apply next state here */
+
+    /* TODO: find next node, save state in nxtstate */
 }
 #+END_SRC
+
+What triggers =targetondeck=? Usually this happens when the
+internal ramp reaches the end. This can also be triggered
+during the beat check-in, when a conductor signal demands
+to jump to the next phrase before fully finishing the
+current one.
 ** Updating the phase using modifier and friends
 To begin, the modifier amount is calculated.
 
@@ -1762,7 +1898,9 @@ inside another function.
 
 #+NAME: static_funcdefs
 #+BEGIN_SRC c
-static gest_node* find_next_node(gest_d *g, gest_node *top);
+static gest_node* find_next_node(gest_d *g,
+                                 gest_node *top,
+                                 gest_state *state);
 #+END_SRC
 
 The function =find_next_node= will search for the next
@@ -1771,9 +1909,17 @@ searches.
 
 The =top= is typically the currently selected node.
 
+Eventually, =find_next_node= will become an operation
+will only temporarily manipulate the state of =gest_d=,
+before returning it back to what it was before. This
+is needed because the next node is found immediately
+after the current node is set.
+
 #+NAME: funcs
 #+BEGIN_SRC c
-static gest_node* find_next_node(gest_d *g, gest_node *top)
+static gest_node* find_next_node(gest_d *g,
+                                 gest_node *top,
+                                 gest_state *state)
 {
     gest_node *next;
     gest_node *last_reverted;
@@ -1786,6 +1932,8 @@ static gest_node* find_next_node(gest_d *g, gest_node *top)
             /* if so, go to next phrase */
             if (top->next == NULL) {
                 /* wait for the downbeat of the next phrase */
+                /* TODO this should be a value returned */
+                /* TODO phrase *should* be found here and stored in state */
                 g->please_wait = 1;
                 break;
             } else {
@@ -1824,77 +1972,19 @@ static gest_node* find_next_node(gest_d *g, gest_node *top)
         }
     }
 
+    /* TODO restore old numerator and denominator */
+    /* TODO next node should somehow be stored in state */
+
+    save_state(g, state);
+
+    /* TODO this should return the pleasewait flag */
     return next;
 }
 #+END_SRC
 
 #+NAME: find_next_node
 #+BEGIN_SRC c
-#if 0
-gest_node *next;
-gest_node *top;
-gest_node *last_reverted;
-
-next = NULL;
-last_reverted = NULL;
-
-/* maybe there needs to be a curchild? */
-/* or, maybe the top gets derived from the parent node */
-top = g->curnode;
-while (next == NULL) {
-    if (top == g->phrase_selected->top) {
-        /* are we at the end */
-        /* if so, go to next phrase */
-        if (top->next == NULL) {
-            /* wait for the downbeat of the next phrase */
-            g->please_wait = 1;
-            break;
-        } else {
-            /* go to next child in top polyramp node */
-            next = top->next;
-
-            if (next->target == NULL) {
-                next = dive_to_target(g, next);
-            }
-
-            g->nxtnode = next;
-            set_nxttarget(g, node_target(next));
-            g->targetondeck = 1;
-        }
-    } else if (top->next == NULL) {
-        revert_modifier(g, top->parent);
-        last_reverted = top->parent;
-        top = top->parent;
-    } else {
-        next = top->next;
-
-        /* if top is a monoramp >1, revert it */
-
-        if (top != last_reverted) {
-            if (top->type == NODE_MONORAMP && top->modifier > 1) {
-                /* revert the monoramp */
-                revert_modifier(g, top);
-            }
-        }
-
-        /* dive_to_target applies modifiers */
-        /* continguous nodes on the same level don't have these */
-        if (next->target == NULL) {
-            next = dive_to_target(g, next);
-        } else if (next->type == NODE_MONORAMP && next->modifier > 1) {
-            /* next node is on same level but is monoramp */
-            apply_modifier(g, next);
-        }
-
-
-        g->nxtnode = next;
-        set_nxttarget(g, node_target(next));
-        g->targetondeck = 1;
-    }
-}
-#endif
-
-g->nxtnode = find_next_node(g, g->curnode);
+g->nxtnode = find_next_node(g, g->curnode, &g->nxtstate);
 if (g->nxtnode != NULL) {
     set_nxttarget(g, node_target(g->nxtnode));
     g->targetondeck = 1;
