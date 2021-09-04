@@ -1583,6 +1583,8 @@ static gest_target *node_target(gest_node *node)
 {
     gest_target *t;
 
+    if (node == NULL) return NULL;
+
     t = node->target;
 
     if (node->target != NULL && node->target->get != NULL) {
@@ -1755,7 +1757,11 @@ if (g->targetondeck) {
     g->phrase_selected = s->phrase;
 
     init_state(&g->nxtstate);
-    find_next_node(g, g->curnode, &g->nxtstate);
+
+    if (g->curnode != NULL) {
+        find_next_node(g, g->curnode, &g->nxtstate);
+    }
+
     g->nxttarget = g->nxtstate.target;
 
     if (g->nxttarget != NULL) {
@@ -1881,10 +1887,13 @@ static void find_next_node(gest_d *g,
             if (top->next == NULL) {
                 /* next node is in next phrase */
                 phrase = phrase->next;
-                next = phrase->top;
+                if (phrase != NULL) next = phrase->top;
+                else next = NULL;
                 g->num = 1;
                 g->den = 1;
-                next = dive_to_target(g, next);
+                if (next != NULL) {
+                   next = dive_to_target(g, next);
+                }
                 break;
             } else {
                 /* go to next child in top polyramp node */
