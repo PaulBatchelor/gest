@@ -1684,34 +1684,6 @@ if (reset) {
     if (g->t > 0) g->correction = goal / g->t;
 
     if (g->beat >= limit) {
-#if 0
-        /* TODO: trigger targetondeck flag here */
-        /* node of next phrase should already be found at this point */
-        gest_node *next;
-
-        g->phrase_selected = g->phrase_selected->next;
-
-        g->beat = 0;
-        g->t = 0;
-        g->phs = 0;
-        g->please_wait = 0;
-        g->correction = 1.0;
-
-        if (g->phrase_selected == NULL) {
-            return phs;
-        }
-
-        next = g->phrase_selected->top;
-        /* reset modifier */
-        g->num = 1;
-        g->den = 1;
-        next = dive_to_target(g, next);
-        set_nxttarget(g, node_target(next));
-        g->targetondeck = 1;
-        set_curnode(g, next);
-
-        return phs;
-#endif
         g->beat = 0;
         g->t = 0;
         g->phs = 0;
@@ -1737,13 +1709,8 @@ call to =ramptree_step=.
 #+BEGIN_SRC c
 out = g->phs;
 #+END_SRC
-** Updating Targets (Currently Subject to change)
-If any targets were slotted to be updated in the previous
-call, update them now, then clear the flag.
-
----
-
-Moving forward, the =targetondeck= flag will not only be
+** Updating Targets
+A set =targetondeck= flag will not only be
 used to change the target, but also the state information
 that comes with the target, such as the node, the phrase,
 and the conductor modifier associated with the target.
@@ -1825,14 +1792,40 @@ If it has, a change in nodes is required.
 #+NAME: check_and_update
 #+BEGIN_SRC c
 if (phs > 1.0) {
-    <<find_next_node>>
+    <<goto_next_node>>
     <<wraparound>>
 }
 #+END_SRC
-** Finding the Next Node
-When the ramp reaches the end, it is time to find the next
-node with a target. It does this by traversing the Ramp
+** Signalling to go to the next target
+When the ramp reaches the end, it is time to go on to the
+next node with a target. By the time it reaches this point,
+this node has already been found, and just needs to be
+signalled to switch with the variable =targetondeck=.
+
+#+NAME: goto_next_node
+#+BEGIN_SRC c
+g->targetondeck = 1;
+#+END_SRC
+** Finding the next node in the Ramp Tree
+When a new node begins, the next with a target
+in the ramp tree must be found immediately after.
+Many programs using Gest require knowing the next target.
+
+The next node is found by traversing the Ramp
 Tree based on the position the current node is in.
+
+The process of finding the next node is done in a function
+called =find_next_node=. It will find the next node, and
+store the results in an instance of =gest_state=. The
+=top= node is expected to be the currently selected node
+=curnode=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void find_next_node(gest_d *g,
+                           gest_node *top,
+                           gest_state *state);
+#+END_SRC
 
 Traversal starts large and gets smaller.
 
@@ -1862,37 +1855,6 @@ greater than 1, it will also apply modifications. But should
 be handled inside of =dive_to_target=. If the node is already
 a target with a monoramp >1, this gets applied here as a
 special exception.
-
----
-
-Things are going to change here! Moving forward, Gest will
-already have found the next phrase and next target by the
-time it has reached here. Instead what will happen is
-that gest will get a signal (targetondeck) to swap to the
-next target, and the next node on deck will be updated to
-be the current node.
-
-This may also turn into a function, rather than a block
-inside another function.
-
-#+NAME: static_funcdefs
-#+BEGIN_SRC c
-static void find_next_node(gest_d *g,
-                           gest_node *top,
-                           gest_state *state);
-#+END_SRC
-
-The function =find_next_node= will search for the next
-node in the ramp tree, manipulating global state as it
-searches.
-
-The =top= is typically the currently selected node.
-
-Eventually, =find_next_node= will become an operation
-will only temporarily manipulate the state of =gest_d=,
-before returning it back to what it was before. This
-is needed because the next node is found immediately
-after the current node is set.
 
 #+NAME: funcs
 #+BEGIN_SRC c
@@ -1973,21 +1935,7 @@ static void find_next_node(gest_d *g,
     g->den = den;
 }
 #+END_SRC
-
-#+NAME: find_next_node
-#+BEGIN_SRC c
-#if 0
-g->nxtnode = find_next_node(g, g->curnode, &g->nxtstate);
-if (g->nxtnode != NULL) {
-    set_nxttarget(g, node_target(g->nxtnode));
-    g->targetondeck = 1;
-}
-
-set_curnode(g, g->nxtnode);
-#endif
-g->targetondeck = 1;
-#+END_SRC
-
+** When a phrase is over, wraparound
 A phrase is considered over when it reaches the end of the
 top-level polyramp. At this point, the next phrase is found
 and set to be the beginning of that node.
