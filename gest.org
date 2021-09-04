@@ -220,19 +220,6 @@ Update the current target with =set_curtarget=.
 static void set_curtarget(gest_d *g, gest_target *target);
 #+END_SRC
 
-With metatargets, things are going to change here. Targets
-will have to be cached, and this is where it will happen.
-This function is going to get a lot more responsibility.
-
-When the current target is set, the next target is must be
-set as well. This will require finding the next node, which
-may be in another phrase.
-
-This is needed because certain tools using gest (like the
-vocal synthesis stuff) need to know precisely what the next
-target is and metatargets can mutate their internal state,
-so therefore must have their next target cached.
-
 #+NAME: funcs
 #+BEGIN_SRC c
 static void set_curtarget(gest_d *g, gest_target *target)
@@ -243,8 +230,6 @@ static void set_curtarget(gest_d *g, gest_target *target)
 }
 #+END_SRC
 
-
-TODO: words.
 
 #+NAME: funcdefs
 #+BEGIN_SRC c
@@ -259,20 +244,16 @@ gest_target * gest_curtarget(gest_d *g)
 }
 #+END_SRC
 
-A next target is needed because during computation, the
-previous state is always used, and therefore
-the previous targets are needed.
-
-#+NAME: static_funcdefs
+#+NAME: funcdefs
 #+BEGIN_SRC c
-static void set_nxttarget(gest_d *g, gest_target *target);
+gest_target * gest_nxttarget(gest_d *g);
 #+END_SRC
 
 #+NAME: funcs
 #+BEGIN_SRC c
-static void set_nxttarget(gest_d *g, gest_target *target)
+gest_target * gest_nxttarget(gest_d *g)
 {
-    g->nxttarget = target;
+    return g->nxttarget;
 }
 #+END_SRC
 ** Stack
@@ -567,51 +548,6 @@ struct gest_state {
 };
 #+END_SRC
 
-Applying a state to gest can be done with =apply_state=.
-
-#+NAME: static_funcdefs
-#+BEGIN_SRC c
-static void apply_state(gest_d *g, gest_state *s);
-#+END_SRC
-
-#+NAME: funcs
-#+BEGIN_SRC c
-static void apply_state(gest_d *g, gest_state *s)
-{
-    g->num = s->num;
-    g->den = s->den;
-    set_curtarget(g, s->target);
-
-    if (g->curtarget->next != NULL) {
-        g->nxtval = g->curtarget->next->value;
-    } else {
-        g->nxtval = g->curval;
-    }
-
-    set_curnode(g, s->node);
-    g->phrase_selected = s->phrase;
-}
-#+END_SRC
-
-Saving a state from gest can be done with =save_state=.
-
-#+NAME: static_funcdefs
-#+BEGIN_SRC c
-static void save_state(gest_d *g, gest_state *s);
-#+END_SRC
-
-#+NAME: funcs
-#+BEGIN_SRC c
-static void save_state(gest_d *g, gest_state *s)
-{
-    s->num = g->num;
-    s->den = g->den;
-    s->phrase = g->phrase_selected;
-    s->target = g->curtarget;
-    s->node = g->curnode;
-}
-#+END_SRC
-
 Initialize state with =init_state=.
 
 #+NAME: static_funcdefs
@@ -816,8 +752,12 @@ void gest_finish(gest_d *g)
     set_curnode(g, top);
     set_curtarget(g, node_target(top));
 
-    if (g->curtarget->next != NULL) {
-        g->nxtval = g->curtarget->next->value;
+    init_state(&g->nxtstate);
+    find_next_node(g, g->curnode, &g->nxtstate);
+    g->nxttarget = g->nxtstate.target;
+
+    if (g->nxttarget != NULL) {
+        g->nxtval = g->nxttarget->value;
     } else {
         g->nxtval = g->curval;
     }
@@ -1744,6 +1684,7 @@ if (reset) {
     if (g->t > 0) g->correction = goal / g->t;
 
     if (g->beat >= limit) {
+#if 0
         /* TODO: trigger targetondeck flag here */
         /* node of next phrase should already be found at this point */
         gest_node *next;
@@ -1769,6 +1710,15 @@ if (reset) {
         g->targetondeck = 1;
         set_curnode(g, next);
 
+        return phs;
+#endif
+        g->beat = 0;
+        g->t = 0;
+        g->phs = 0;
+        g->please_wait = 0;
+        g->correction = 1.0;
+        g->targetondeck = 1;
+        g->phrase_selected = g->nxtstate.phrase;
         return phs;
     }
 } else if (g->please_wait) {
@@ -1812,20 +1762,40 @@ and just needs to be swapped in.
 #+NAME: update_targets
 #+BEGIN_SRC c
 if (g->targetondeck) {
-    g->targetondeck = 0;
-    set_curtarget(g, g->nxttarget);
+    gest_state *s;
+    int shouldiwait;
 
-    if (g->curtarget->next != NULL) {
-        g->nxtval = g->curtarget->next->value;
+    s = &g->nxtstate;
+
+    g->targetondeck = 0;
+
+    /* non-matching non-NULL phrases indicate
+     * a new phrase */
+    shouldiwait =
+        s->phrase != NULL &&
+        s->phrase != g->phrase_selected;
+
+    if (shouldiwait) {
+        g->please_wait = 1;
+        return 1.0;
+    }
+
+    g->num = s->num;
+    g->den = s->den;
+    set_curtarget(g, s->target);
+
+    set_curnode(g, s->node);
+    g->phrase_selected = s->phrase;
+
+    init_state(&g->nxtstate);
+    find_next_node(g, g->curnode, &g->nxtstate);
+    g->nxttarget = g->nxtstate.target;
+
+    if (g->nxttarget != NULL) {
+        g->nxtval = g->nxttarget->value;
     } else {
         g->nxtval = g->curval;
     }
-
-    g->nxttarget = NULL;
-
-    /* TODO: apply next state here */
-
-    /* TODO: find next node, save state in nxtstate */
 }
 #+END_SRC
 
@@ -1907,9 +1877,9 @@ inside another function.
 
 #+NAME: static_funcdefs
 #+BEGIN_SRC c
-static gest_node* find_next_node(gest_d *g,
-                                 gest_node *top,
-                                 gest_state *state);
+static void find_next_node(gest_d *g,
+                           gest_node *top,
+                           gest_state *state);
 #+END_SRC
 
 The function =find_next_node= will search for the next
@@ -1926,24 +1896,33 @@ after the current node is set.
 
 #+NAME: funcs
 #+BEGIN_SRC c
-static gest_node* find_next_node(gest_d *g,
-                                 gest_node *top,
-                                 gest_state *state)
+static void find_next_node(gest_d *g,
+                           gest_node *top,
+                           gest_state *state)
 {
     gest_node *next;
     gest_node *last_reverted;
+    gest_phrase *phrase;
+    int num, den;
 
     next = NULL;
     last_reverted = NULL;
+
+    num = g->num;
+    den = g->den;
+    phrase = g->phrase_selected;
+
     while (next == NULL) {
         if (top == g->phrase_selected->top) {
             /* are we at the end */
             /* if so, go to next phrase */
             if (top->next == NULL) {
-                /* wait for the downbeat of the next phrase */
-                /* TODO this should be a value returned */
-                /* TODO phrase *should* be found here and stored in state */
-                g->please_wait = 1;
+                /* next node is in next phrase */
+                phrase = phrase->next;
+                next = phrase->top;
+                g->num = 1;
+                g->den = 1;
+                next = dive_to_target(g, next);
                 break;
             } else {
                 /* go to next child in top polyramp node */
@@ -1981,18 +1960,23 @@ static gest_node* find_next_node(gest_d *g,
         }
     }
 
-    /* TODO restore old numerator and denominator */
-    /* TODO next node should somehow be stored in state */
 
-    save_state(g, state);
+    state->num = g->num;
+    state->den = g->den;
+    state->node = next;
+    state->target = node_target(next);
+    state->phrase = phrase;
 
-    /* TODO this should return the pleasewait flag */
-    return next;
+    /* restore old numerator and denominator */
+
+    g->num = num;
+    g->den = den;
 }
 #+END_SRC
 
 #+NAME: find_next_node
 #+BEGIN_SRC c
+#if 0
 g->nxtnode = find_next_node(g, g->curnode, &g->nxtstate);
 if (g->nxtnode != NULL) {
     set_nxttarget(g, node_target(g->nxtnode));
@@ -2000,6 +1984,8 @@ if (g->nxtnode != NULL) {
 }
 
 set_curnode(g, g->nxtnode);
+#endif
+g->targetondeck = 1;
 #+END_SRC
 
 A phrase is considered over when it reaches the end of the
@@ -2578,40 +2564,6 @@ void gest_target_data_set(gest_target *t, void *ud)
 void* gest_target_data_get(gest_target *t)
 {
     return t->ud;
-}
-#+END_SRC
-** Get next target
-#+NAME: funcdefs
-#+BEGIN_SRC c
-gest_target* gest_target_next(gest_target *t);
-#+END_SRC
-
-Metatarget rambles to follow here.
-
-When metatargets get involved, this gets tricky.
-As is, this would return the metatarget itself,
-not the target. This wouldn't work for certain
-situations like the vocal tract stuff (which is
-why this function was implemented in the first place).
-
-It was easiest to think that getters would mutate
-state because within gest the next value was
-only retrieved once. But here, it's hard to say.
-
----
-
-This is going to change. the next target will have
-to be retrieved globally as a cached value
-via =gest_d= rather than direct access in
-the target. This function will have to be changed
-eventually. Keeping it in place until metatargets
-are changed.
-
-#+NAME: funcs
-#+BEGIN_SRC c
-gest_target* gest_target_next(gest_target *t)
-{
-    return t->next;
 }
 #+END_SRC
 * Computation
