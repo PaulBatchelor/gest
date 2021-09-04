@@ -239,17 +239,6 @@ static void set_curtarget(gest_d *g, gest_target *target)
 {
     g->curtarget = target;
     g->curval = target->value;
-
-    /* TODO: find next node */
-
-    /* TODO: find next target from next node */
-
-    if (target->next != NULL) {
-        g->nxtval = target->next->value;
-    } else {
-        g->nxtval = g->curval;
-    }
-
     apply_weight(g, target);
 }
 #+END_SRC
@@ -592,6 +581,13 @@ static void apply_state(gest_d *g, gest_state *s)
     g->num = s->num;
     g->den = s->den;
     set_curtarget(g, s->target);
+
+    if (g->curtarget->next != NULL) {
+        g->nxtval = g->curtarget->next->value;
+    } else {
+        g->nxtval = g->curval;
+    }
+
     set_curnode(g, s->node);
     g->phrase_selected = s->phrase;
 }
@@ -819,6 +815,12 @@ void gest_finish(gest_d *g)
 
     set_curnode(g, top);
     set_curtarget(g, node_target(top));
+
+    if (g->curtarget->next != NULL) {
+        g->nxtval = g->curtarget->next->value;
+    } else {
+        g->nxtval = g->curval;
+    }
 }
 #+END_SRC
 ** Loopit
@@ -1812,6 +1814,13 @@ and just needs to be swapped in.
 if (g->targetondeck) {
     g->targetondeck = 0;
     set_curtarget(g, g->nxttarget);
+
+    if (g->curtarget->next != NULL) {
+        g->nxtval = g->curtarget->next->value;
+    } else {
+        g->nxtval = g->curval;
+    }
+
     g->nxttarget = NULL;
 
     /* TODO: apply next state here */
