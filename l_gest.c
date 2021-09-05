@@ -367,6 +367,51 @@ static lil_value_t l_gest_bezier(lil_t lil,
     return NULL;
 }
 
+static lil_value_t l_gest_metatarget(lil_t lil,
+                                    size_t argc,
+                                    lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+    int sz;
+
+    core = lil_get_data(lil);
+    SKLIL_ARITY_CHECK(lil, "gest_target", argc, 1);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+    sz = lil_to_integer(argv[0]);
+
+    rc = gest_addmetatarget(g, sz);
+
+    if (rc) {
+        lil_set_error(lil, "Could not add metatarget\n");
+        return NULL;
+    }
+
+    sk_core_generic_push(core, g);
+    return NULL;
+}
+
+static lil_value_t l_gest_mediumgliss(lil_t lil,
+                                     size_t argc,
+                                     lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+
+    core = lil_get_data(lil);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+    gest_behavior_mediumgliss(g);
+
+    sk_core_generic_push(core, g);
+    return NULL;
+}
+
 
 void sklil_load_gest(lil_t lil)
 {
@@ -388,4 +433,6 @@ void sklil_load_gest(lil_t lil)
     lil_register(lil, "gest_smallgliss", l_gest_smallgliss);
     lil_register(lil, "gest_exponential", l_gest_exponential);
     lil_register(lil, "gest_bezier", l_gest_bezier);
+    lil_register(lil, "gest_metatarget", l_gest_metatarget);
+    lil_register(lil, "gest_mediumgliss", l_gest_mediumgliss);
 }

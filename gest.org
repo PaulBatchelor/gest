@@ -691,7 +691,7 @@ int gest_monoramp(gest_d *g, int nbeats)
     return 0;
 }
 #+END_SRC
-** Addtarget (maybe call this cap?)
+** Addtarget
 Target: Caps the current ramp with a scalar target, as a
 floating point value. uses linear behavior by default.
 
@@ -778,6 +778,48 @@ void gest_loopit(gest_d *g)
 {
     g->curtarget->next = g->toptarget;
     g->phrase_selected->next = g->phrase_top;
+}
+#+END_SRC
+** Addmetatarget
+The function =gest_addmetatarget= will create a new
+metatarget with a size of =sz= metatargets.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_addmetatarget(gest_d *g, int sz);
+#+END_SRC
+
+This function will implicitely create a new target
+using =gest_addtarget=, then configure this
+target to be a metatarget.
+
+After it is created, the metatarget gets pushed onto the
+metatarget stack contained in the gest data.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gest_addmetatarget(gest_d *g, int sz)
+{
+    int rc;
+    gest_target *t;
+    gest_metatarget *mt;
+
+    if (g->mtpos >= GEST_MTSTACK_SIZE) return 2;
+
+    rc = gest_addtarget(g, -1);
+
+    if (rc) return rc;
+
+    t = g->curtarget;
+
+    mt = metatarget_alloc(g, sz);
+
+    t->get = get_seq;
+    t->ud = mt;
+
+    /* push to stack */
+    g->mtstack[g->mtpos++] = mt;
+    return 0;
 }
 #+END_SRC
 * Behavior Commands
@@ -2249,6 +2291,10 @@ Every target created is bound to exactly one node in a ramp
 tree. Such a binding indicates a terminal leaf node in the
 tree.
 
+Creating targets are an important operation because
+it is the thing that moves the tree forward (from left
+to right) in population.
+
 #+NAME: static_funcdefs
 #+BEGIN_SRC c
 static gest_target * mktarget(gest_d *g);
@@ -2266,18 +2312,34 @@ static gest_target * mktarget(gest_d *g)
     last = NULL;
     curnode = g->curnode;
 
+    <<create_target>>
+
+    if (g->mtpos > 0) {
+        <<tie_to_metatarget>>
+        return t;
+    }
+
     if (curnode == NULL) {
         return NULL;
     }
 
     <<check_current_node>>
-    <<create_target>>
     <<tie_to_node>>
     <<move_forward>>
 
     return t;
 }
 #+END_SRC
+
+Data for a new target is allocated and initialized. What
+to do with the target remains to be seen.
+
+#+NAME: create_target
+#+BEGIN_SRC c
+t = gest_alloc(g, sizeof(gest_target));
+gest_target_init(t);
+#+END_SRC
+
 
 A check is done to see if the current node can have
 a target applied in the first place.
@@ -2293,16 +2355,6 @@ a target applied in the first place.
         return NULL;
     }
 }
-#+END_SRC
-
-Creating targets are an important operation because
-it is the thing that moves the tree forward (from left
-to right) in population.
-
-#+NAME: create_target
-#+BEGIN_SRC c
-t = gest_alloc(g, sizeof(gest_target));
-gest_target_init(t);
 #+END_SRC
 
 Technically, a target is bound to the last created node,
@@ -2400,6 +2452,30 @@ reaches the end of the phrase.
     }
 
     set_curnode(g, next);
+}
+#+END_SRC
+
+If there is a metatarget being active populated, the target
+will be sent there instead of being tied to a node. The most
+recent metatarget in play is retrieved via the metatarget
+stack, and a target is appeneded. If it has reached the end,
+the metatarget itself is popped off the stack here.
+
+#+NAME: tie_to_metatarget
+#+BEGIN_SRC c
+gest_metatarget *mt;
+
+/* get from top of stack */
+mt = g->mtstack[g->mtpos - 1];
+
+/* append to targets array */
+mt->targets[mt->pos++] = t;
+
+/* pop off stack if reached the end */
+if (mt->pos >= mt->size) {
+    g->mtpos--;
+    g->mtstack[g->mtpos] = NULL;
+    mt->pos = 0;
 }
 #+END_SRC
 ** Temporal Weight
@@ -2631,29 +2707,92 @@ is cached in the =prevout= variable.
 g->prevout = out;
 #+END_SRC
 * Metatargets
-Work in progress. Metatargets will probably end up in
+Metatargets will probably end up in
 a larger category of meta-things, including metaramps
 and metabehaviors. But metatargets come first.
-
+** Overview
 A metatarget is a target containing one or more
 targets inside of itself. Whenever it gets selected
-it can choose one of these targets.
+it can choose one of these targets. In other words,
+this allows a particular target to dynamically
+change every time the phrase it is contained in is played.
 
 When metatargets are created, the number of
 targets must be known ahead of time. Targets
 created after the metatarget get automatically
 appended to the metatarget until there is no
 more room left.
-
-A metatarget is a special struct contained inside
-of a target (TBD, maybe make aux an array?). It
-contains an array of target pointers, the size,
+** Struct Declaration
+A metatarget is a special struct stored inside
+of a target inside via user-data pointer provided.
+It contains an array of target pointers, the size,
 and variable storing the current position.
+
+#+NAME: typedefs
+#+BEGIN_SRC c
+typedef struct gest_metatarget gest_metatarget;
+#+END_SRC
+
+#+NAME: structs
+#+BEGIN_SRC c
+struct gest_metatarget {
+    int pos;
+    int size;
+    gest_target **targets;
+};
+#+END_SRC
 
 By default, a metatarget will choose targets in sequence.
 This is done by overriding the default "get" callback
 in the target.
 
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_target *get_seq(gest_node *n, gest_target *t);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_target *get_seq(gest_node *n, gest_target *t)
+{
+    gest_metatarget *mt;
+
+    mt = t->ud;
+
+    if (mt->pos >= mt->size) mt->pos = 0;
+
+    return mt->targets[mt->pos++];
+}
+#+END_SRC
+** Metatarget Allocation
+A metatarget is allocated with the function
+=metatarget_alloc=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_metatarget * metatarget_alloc(gest_d *g, int sz);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_metatarget * metatarget_alloc(gest_d *g, int sz)
+{
+    gest_metatarget *mt;
+    int t;
+
+    mt = gest_alloc(g, sizeof(gest_metatarget));
+    mt->size = sz;
+    mt->pos = 0;
+    mt->targets = gest_alloc(g, sizeof(gest_target) * sz);
+
+    for (t = 0; t < sz; t++) {
+        mt->targets[t] = NULL;
+    }
+
+    return mt;
+}
+#+END_SRC
+** Metatarget Population
 Metatarget population in Gest works by caching the
 metatarget inside of the Gest struct. When a metatarget
 is first created, it is set to be that value and
@@ -2666,6 +2805,29 @@ Nested metatargets will need to use what will be
 a fixed-size metatarget stack.
 When a value is emptied, it is also popped from the stack.
 
-A depth of 8 for
+A depth of 4 for
 now will be used. If I need it to go deeper than that,
 it will be changed.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+#define GEST_MTSTACK_SIZE 4
+gest_metatarget *mtstack[GEST_MTSTACK_SIZE];
+int mtpos;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+{
+    int i;
+
+    for (i = 0; i < GEST_MTSTACK_SIZE; i++) {
+        g->mtstack[i] = NULL;
+    }
+
+    g->mtpos = 0;
+}
+#+END_SRC
+
+See =gest_addmetatarget= function for more usage
+on this stack.
