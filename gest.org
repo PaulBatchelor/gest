@@ -815,7 +815,7 @@ int gest_addmetatarget(gest_d *g, int sz)
     mt = metatarget_alloc(g, sz);
 
     t->get = get_seq;
-    t->ud = mt;
+    t->meta = mt;
 
     /* push to stack */
     g->mtstack[g->mtpos++] = mt;
@@ -1630,7 +1630,10 @@ static gest_target *node_target(gest_node *node)
     t = node->target;
 
     if (node->target != NULL && node->target->get != NULL) {
-        t = node->target->get(node, node->target);
+        while (1) {
+            t = t->get(node, t);
+            if (t->meta == NULL) break;
+        }
     }
 
     return t;
@@ -2250,6 +2253,7 @@ struct gest_target {
     void *ud; /* user data attached to this target */
     gest_target *next;
     gest_target* (*get)(gest_node *n, gest_target *t);
+    gest_metatarget *meta;
     <<temporal_weight>>
 };
 #+END_SRC
@@ -2270,6 +2274,7 @@ void gest_target_init(gest_target *t)
     t->next = NULL;
     t->mix = default_mix;
     t->get = NULL;
+    t->meta = NULL;
     <<init_temporal_weight>>
 }
 #+END_SRC
@@ -2757,7 +2762,7 @@ static gest_target *get_seq(gest_node *n, gest_target *t)
 {
     gest_metatarget *mt;
 
-    mt = t->ud;
+    mt = t->meta;
 
     if (mt->pos >= mt->size) mt->pos = 0;
 

@@ -11,10 +11,15 @@ func sequence {} {
     gest_smallgliss
 
     gest_metatarget 5
-        gest_target 7
-        gest_smallgliss
-        gest_mass 60
-        gest_inertia 0.1
+        gest_metatarget 2
+            gest_target 7
+            gest_smallgliss
+            gest_mass 60
+            gest_inertia 0.1
+            gest_target 10
+            gest_smallgliss
+            gest_mass -30
+            gest_inertia 0.05
         gest_target 9
         gest_mass 120
         gest_smallgliss
