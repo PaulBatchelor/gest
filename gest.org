@@ -502,7 +502,7 @@ SKFLT prevout;
 #+BEGIN_SRC c
 g->prevout = 0;
 #+END_SRC
-** TODO next target state
+** next target state
 The variable =nxtstate= stores the state information
 needed for the next node.
 
@@ -543,6 +543,7 @@ struct gest_state {
     gest_target *target;
     gest_node *node;
     gest_phrase *phrase;
+    gest_behavior *behavior;
     int num;
     int den;
 };
@@ -564,6 +565,7 @@ static void init_state(gest_state *s)
     s->phrase = NULL;
     s->target = NULL;
     s->node = NULL;
+    s->behavior = NULL;
 }
 #+END_SRC
 * Core Commands
@@ -741,6 +743,7 @@ void gest_finish(gest_d *g);
 void gest_finish(gest_d *g)
 {
     gest_node *top;
+    gest_target *target;
 
     g->den = 1;
     g->num = 1;
@@ -750,7 +753,9 @@ void gest_finish(gest_d *g)
     top = dive_to_target(g, g->phrase_top->top);
 
     set_curnode(g, top);
-    set_curtarget(g, node_target(top));
+    target = node_target(top);
+    target->curbehavior = target_behavior(target);
+    set_curtarget(g, target);
 
     init_state(&g->nxtstate);
     find_next_node(g, g->curnode, &g->nxtstate);
@@ -819,6 +824,59 @@ int gest_addmetatarget(gest_d *g, int sz)
 
     /* push to stack */
     g->mtstack[g->mtpos++] = mt;
+    return 0;
+}
+#+END_SRC
+** Addmetabehavior
+Adds a metabehavior of with =sz= behaviors.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_addmetabehavior(gest_d *g, int sz);
+#+END_SRC
+
+By default, adding a metabehavior means taking
+the behavior in the currently selected target and
+converting it into a metabehavior. A nested metabehavior
+will already have the root behavior converted
+into a metabehavior at this point. If a metabehavior
+has been found, it will create a metabehavior on
+the next available behavior in the parent metabehavior.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gest_addmetabehavior(gest_d *g, int sz)
+{
+    gest_target *t;
+    gest_metabehavior *mb;
+    gest_behavior *b;
+
+    if (g->mbpos >= GEST_MBSTACK_SIZE) return 2;
+
+    t = g->curtarget;
+
+    b = &t->behavior;
+
+    if (b->meta != NULL) {
+        /* empty stack, shouldn't happen normally */
+        if (g->mbpos <= 0) return 3;
+
+        mb = b->meta;
+        b = &mb->behaviors[mb->pos++];
+
+        if (mb->pos >= mb->size) {
+            g->mbstack[g->mbpos - 1] = NULL;
+            g->mbpos--; /* don't be clever */
+        }
+    }
+
+    mb = metabehavior_alloc(g, sz);
+
+    b->get = behave_seq;
+    b->meta = mb;
+
+    /* push to stack */
+    g->mbstack[g->mbpos++] = mb;
     return 0;
 }
 #+END_SRC
@@ -1794,6 +1852,7 @@ if (g->targetondeck) {
 
     g->num = s->num;
     g->den = s->den;
+    s->target->curbehavior = s->behavior;
     set_curtarget(g, s->target);
 
     set_curnode(g, s->node);
@@ -1979,6 +2038,7 @@ static void find_next_node(gest_d *g,
     state->den = g->den;
     state->node = next;
     state->target = node_target(next);
+    state->behavior = target_behavior(state->target);
     state->phrase = phrase;
 
     /* restore old numerator and denominator */
@@ -2247,10 +2307,11 @@ is one coming next).
 struct gest_target {
     SKFLT value;
     gest_behavior behavior;
+    gest_behavior *curbehavior;
     SKFLT (*mix)(gest_d *, SKFLT, SKFLT, SKFLT);
     void *ud; /* user data attached to this target */
     gest_target *next;
-    gest_target* (*get)(gest_node *n, gest_target *t);
+    gest_target* (*get)(gest_node *, gest_target *);
     gest_metatarget *meta;
     <<temporal_weight>>
 };
@@ -2272,6 +2333,7 @@ void gest_target_init(gest_target *t)
     t->get = NULL;
     t->meta = NULL;
     gest_behavior_init(&t->behavior);
+    t->curbehavior = &t->behavior;
     <<init_temporal_weight>>
 }
 #+END_SRC
@@ -2620,6 +2682,8 @@ typedef SKFLT (* gest_bfunc) (gest_d *, SKFLT, void *);
 struct gest_behavior {
     gest_bfunc tick;
     void *ud;
+    gest_behavior * (*get)(gest_target *, gest_behavior *b);
+    gest_metabehavior *meta;
 };
 #+END_SRC
 
@@ -2636,6 +2700,8 @@ void gest_behavior_init(gest_behavior *b)
 {
     b->tick = NULL;
     b->ud = NULL;
+    b->get = NULL;
+    b->meta = NULL;
 }
 #+END_SRC
 
@@ -2655,21 +2721,6 @@ void gest_behavior_set(gest_behavior *b, gest_bfunc tick, void *ud)
 }
 #+END_SRC
 
-A helpful shortcut used in the behavior commands.
-
-#+NAME: static_funcdefs
-#+BEGIN_SRC c
-static void set_behavior(gest_d *g, gest_bfunc tick, void *ud);
-#+END_SRC
-
-#+NAME: funcs
-#+BEGIN_SRC c
-static void set_behavior(gest_d *g, gest_bfunc tick, void *ud)
-{
-    gest_behavior_set(&g->curtarget->behavior, tick, ud);
-}
-#+END_SRC
-
 call the tick function with =gest_behavior_tick=.
 
 #+NAME: funcdefs
@@ -2682,6 +2733,32 @@ SKFLT gest_behavior_tick(gest_behavior *b, gest_d *g, SKFLT a);
 SKFLT gest_behavior_tick(gest_behavior *b, gest_d *g, SKFLT a)
 {
     return b->tick(g, a, b->ud);
+}
+#+END_SRC
+** Behavior Getter From Target
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_behavior * target_behavior(gest_target *t);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_behavior * target_behavior(gest_target *t)
+{
+    gest_behavior *b;
+
+    if (t == NULL) return NULL;
+
+    b = &t->behavior;
+
+    if (b != NULL && b->get != NULL) {
+        while (1) {
+            b = b->get(t, b);
+            if (b->meta == NULL || b->get == NULL) break;
+        }
+    }
+
+    return b;
 }
 #+END_SRC
 * Computation
@@ -2779,7 +2856,7 @@ the output gesture.
 #+NAME: apply_targets
 #+BEGIN_SRC c
 if (g->curtarget != NULL) {
-    out = gest_behavior_tick(&g->curtarget->behavior, g, out);
+    out = gest_behavior_tick(g->curtarget->curbehavior, g, out);
     out = g->curtarget->mix(g, g->curval, g->nxtval, out);
 }
 #+END_SRC
@@ -2932,12 +3009,18 @@ size, and a variable storing the current position.
 typedef struct gest_metabehavior gest_metabehavior;
 #+END_SRC
 
+Note that unlike metatargets, the =behaviors= array
+is an array of behaviors, not an array of pointers.
+Behaviors don't naturally get allocated the same way
+targets do in the gest system, so they are explicitely
+allocated here.
+
 #+NAME: structs
 #+BEGIN_SRC c
 struct gest_metabehavior {
     int pos;
     int size;
-    gest_behavior **behaviors;
+    gest_behavior *behaviors;
 };
 #+END_SRC
 ** Metabehavior allocation
@@ -2962,7 +3045,8 @@ static gest_metabehavior * metabehavior_alloc(gest_d *g, int sz)
     mb->behaviors = gest_alloc(g, sizeof(gest_behavior) * sz);
 
     for (b = 0; b < sz; b++) {
-        mb->behaviors[b] = NULL;
+        gest_behavior_init(&mb->behaviors[b]);
+        gest_behavior_set(&mb->behaviors[b], linear, NULL);
     }
 
     return mb;
@@ -2989,5 +3073,61 @@ int mbpos;
     }
 
     g->mbpos = 0;
+}
+#+END_SRC
+
+All behaviors can automatically be appended to metabehaviors
+instead of targets when they use =set_behavior=.
+
+First, it will check the metabehavior stack, and append
+there. Otherwise it will set to the current target directly.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void set_behavior(gest_d *g, gest_bfunc tick, void *ud);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void set_behavior(gest_d *g, gest_bfunc tick, void *ud)
+{
+    gest_behavior *b;
+
+    b = &g->curtarget->behavior;
+
+    if (g->mbpos > 0) {
+        gest_metabehavior *mb;
+
+        mb = g->mbstack[g->mbpos - 1];
+
+        b = &mb->behaviors[mb->pos++];
+
+        if (mb->pos >= mb->size) {
+            mb->pos = 0;
+            g->mbstack[g->mbpos - 1] = NULL;
+            g->mbpos--; /* don't be clever */
+        }
+    }
+
+    gest_behavior_set(b, tick, ud);
+}
+#+END_SRC
+** Sequentional Behavior Selector
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_behavior* behave_seq(gest_target *t, gest_behavior *b);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_behavior* behave_seq(gest_target *t, gest_behavior *b)
+{
+    gest_metabehavior *mb;
+
+    mb = b->meta;
+
+    if (mb->pos >= mb->size) mb->pos = 0;
+
+    return &mb->behaviors[mb->pos++];
 }
 #+END_SRC
