@@ -842,7 +842,7 @@ static SKFLT linear(gest_d *g, SKFLT a, void *ud)
 
 void gest_behavior_linear(gest_d *g)
 {
-    g->curtarget->tick = linear;
+    set_behavior(g, linear, NULL);
 }
 #+END_SRC
 ** Step
@@ -863,7 +863,7 @@ static SKFLT step(gest_d *g, SKFLT a, void *ud)
 
 void gest_behavior_step(gest_d *g)
 {
-    g->curtarget->tick = step;
+    set_behavior(g, step, NULL);
 }
 #+END_SRC
 ** Gliss
@@ -898,7 +898,7 @@ static SKFLT gliss(gest_d *g, SKFLT a, void *ud)
 
 void gest_behavior_gliss(gest_d *g)
 {
-    g->curtarget->tick = gliss;
+    set_behavior(g, gliss, NULL);
 }
 #+END_SRC
 *** Small Gliss
@@ -928,7 +928,7 @@ static SKFLT smallgliss(gest_d *g, SKFLT a, void *ud)
 
 void gest_behavior_smallgliss(gest_d *g)
 {
-    g->curtarget->tick = smallgliss;
+    set_behavior(g, smallgliss, NULL);
 }
 #+END_SRC
 *** Medium Gliss
@@ -956,7 +956,7 @@ static SKFLT mediumgliss(gest_d *g, SKFLT a, void *ud)
 
 void gest_behavior_mediumgliss(gest_d *g)
 {
-    g->curtarget->tick = mediumgliss;
+    set_behavior(g, mediumgliss, NULL);
 }
 #+END_SRC
 ** Exponential
@@ -987,10 +987,9 @@ static SKFLT exponential(gest_d *g, SKFLT a, void *ud)
 void gest_behavior_exponential(gest_d *g, SKFLT slope)
 {
     SKFLT *s;
-    g->curtarget->tick = exponential;
-    g->curtarget->aux = gest_alloc(g, sizeof(SKFLT));
-    s = (SKFLT *)g->curtarget->aux;
+    s = gest_alloc(g, sizeof(SKFLT));
     *s = slope;
+    set_behavior(g, exponential, s);
 }
 #+END_SRC
 ** Bezier
@@ -1077,11 +1076,10 @@ static SKFLT bezier(gest_d *g, SKFLT a, void *ud)
 void gest_behavior_bezier(gest_d *g, SKFLT cx, SKFLT cy)
 {
     struct bezier_data *bd;
-    g->curtarget->tick = bezier;
-    g->curtarget->aux = gest_alloc(g, sizeof(struct bezier_data));
-    bd = (struct bezier_data *)g->curtarget->aux;
+    bd = gest_alloc(g, sizeof(struct bezier_data));
     bd->cx = cx;
     bd->cy = cy;
+    set_behavior(g, bezier, bd);
 }
 #+END_SRC
 * Temporal Weight Commands
@@ -2220,7 +2218,7 @@ static void collection_cleanup(gest_collection *col)
     }
 }
 #+END_SRC
-* Targets
+* Targets and Behaviors
 Targets can be contained inside of a node. If the tree
 reaches a node with a target, it sets it to be that target
 when the node starts.
@@ -2245,10 +2243,10 @@ is one coming next).
 
 #+NAME: gest_target
 #+BEGIN_SRC c
+<<gest_behavior>>
 struct gest_target {
     SKFLT value;
-    SKFLT (*tick)(gest_d *, SKFLT, void *);
-    void *aux; /* aux data for behavior function */
+    gest_behavior behavior;
     SKFLT (*mix)(gest_d *, SKFLT, SKFLT, SKFLT);
     void *ud; /* user data attached to this target */
     gest_target *next;
@@ -2268,13 +2266,12 @@ void gest_target_init(gest_target *t);
 void gest_target_init(gest_target *t)
 {
     t->value = 0;
-    t->tick = NULL;
     t->ud = NULL;
-    t->aux = NULL;
     t->next = NULL;
     t->mix = default_mix;
     t->get = NULL;
     t->meta = NULL;
+    gest_behavior_init(&t->behavior);
     <<init_temporal_weight>>
 }
 #+END_SRC
@@ -2604,6 +2601,89 @@ void* gest_target_data_get(gest_target *t)
     return t->ud;
 }
 #+END_SRC
+** Behaviors
+Behaviors are the things that dictate how one target
+goes to the next target. A behavior is a callback
+function. It is a function that takes in a value from 0 to
+1, and then returns a new value assumed to also be in the
+same range. Behaviors can also have their own state to
+manage things like parameters and constants.
+
+#+NAME: typedefs
+#+BEGIN_SRC c
+typedef struct gest_behavior gest_behavior;
+typedef SKFLT (* gest_bfunc) (gest_d *, SKFLT, void *);
+#+END_SRC
+
+#+NAME: gest_behavior
+#+BEGIN_SRC c
+struct gest_behavior {
+    gest_bfunc tick;
+    void *ud;
+};
+#+END_SRC
+
+Initialize the behavior with =gest_behavior_init=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_behavior_init(gest_behavior *b);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_behavior_init(gest_behavior *b)
+{
+    b->tick = NULL;
+    b->ud = NULL;
+}
+#+END_SRC
+
+Set the behavior with =gest_behavior_set=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_behavior_set(gest_behavior *b, gest_bfunc tick, void *ud);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_behavior_set(gest_behavior *b, gest_bfunc tick, void *ud)
+{
+    b->tick = tick;
+    b->ud = ud;
+}
+#+END_SRC
+
+A helpful shortcut used in the behavior commands.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void set_behavior(gest_d *g, gest_bfunc tick, void *ud);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void set_behavior(gest_d *g, gest_bfunc tick, void *ud)
+{
+    gest_behavior_set(&g->curtarget->behavior, tick, ud);
+}
+#+END_SRC
+
+call the tick function with =gest_behavior_tick=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+SKFLT gest_behavior_tick(gest_behavior *b, gest_d *g, SKFLT a);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+SKFLT gest_behavior_tick(gest_behavior *b, gest_d *g, SKFLT a)
+{
+    return b->tick(g, a, b->ud);
+}
+#+END_SRC
 * Computation
 Gest is synthesized with =gest_tick=. It expects
 a conductor phasor signal =conductor=.
@@ -2699,7 +2779,7 @@ the output gesture.
 #+NAME: apply_targets
 #+BEGIN_SRC c
 if (g->curtarget != NULL) {
-    out = g->curtarget->tick(g, out, g->curtarget->aux);
+    out = gest_behavior_tick(&g->curtarget->behavior, g, out);
     out = g->curtarget->mix(g, g->curval, g->nxtval, out);
 }
 #+END_SRC
