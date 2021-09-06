@@ -2916,3 +2916,78 @@ int mtpos;
 
 See =gest_addmetatarget= function for more usage
 on this stack.
+* Metabehaviors
+** Overview
+The metabehavior is a special kind of behavior that is a
+collection of behaviors. Every time a target a metabehavior
+belongs to is selected, it has the ability to change
+which behavior is used.
+** Struct Declaration
+Data for the metabehavior is encapsulated in a struct called
+=gest_metabehavior=. It contains an array of behaviors, the
+size, and a variable storing the current position.
+
+#+NAME: typedefs
+#+BEGIN_SRC c
+typedef struct gest_metabehavior gest_metabehavior;
+#+END_SRC
+
+#+NAME: structs
+#+BEGIN_SRC c
+struct gest_metabehavior {
+    int pos;
+    int size;
+    gest_behavior **behaviors;
+};
+#+END_SRC
+** Metabehavior allocation
+A metabehavior is allocated with the function
+=metabehavior_alloc=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_metabehavior * metabehavior_alloc(gest_d *g, int sz);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_metabehavior * metabehavior_alloc(gest_d *g, int sz)
+{
+    gest_metabehavior *mb;
+    int b;
+
+    mb = gest_alloc(g, sizeof(gest_metatarget));
+    mb->size = sz;
+    mb->pos = 0;
+    mb->behaviors = gest_alloc(g, sizeof(gest_behavior) * sz);
+
+    for (b = 0; b < sz; b++) {
+        mb->behaviors[b] = NULL;
+    }
+
+    return mb;
+}
+#+END_SRC
+** Population (via Stack)
+Similar to the metatargets, population is done with a stack
+of metabehaviors.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+#define GEST_MBSTACK_SIZE 4
+gest_metabehavior *mbstack[GEST_MBSTACK_SIZE];
+int mbpos;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+{
+    int i;
+
+    for (i = 0; i < GEST_MBSTACK_SIZE; i++) {
+        g->mbstack[i] = NULL;
+    }
+
+    g->mbpos = 0;
+}
+#+END_SRC
