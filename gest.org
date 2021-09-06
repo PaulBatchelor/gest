@@ -2868,11 +2868,15 @@ is cached in the =prevout= variable.
 #+BEGIN_SRC c
 g->prevout = out;
 #+END_SRC
-* Metatargets
+* Metathings
+All things meta. Generally speaking, anything in this
+section refers to any component in Gest capable of changing
+itself after it has been created.
+** Metatargets
 Metatargets will probably end up in
 a larger category of meta-things, including metaramps
 and metabehaviors. But metatargets come first.
-** Overview
+*** Overview
 A metatarget is a target containing one or more
 targets inside of itself. Whenever it gets selected
 it can choose one of these targets. In other words,
@@ -2884,7 +2888,7 @@ targets must be known ahead of time. Targets
 created after the metatarget get automatically
 appended to the metatarget until there is no
 more room left.
-** Struct Declaration
+*** Struct Declaration
 A metatarget is a special struct stored inside
 of a target inside via user-data pointer provided.
 It contains an array of target pointers, the size,
@@ -2926,7 +2930,7 @@ static gest_target *get_seq(gest_node *n, gest_target *t)
     return mt->targets[mt->pos++];
 }
 #+END_SRC
-** Metatarget Allocation
+*** Metatarget Allocation
 A metatarget is allocated with the function
 =metatarget_alloc=.
 
@@ -2954,7 +2958,7 @@ static gest_metatarget * metatarget_alloc(gest_d *g, int sz)
     return mt;
 }
 #+END_SRC
-** Metatarget Population
+*** Metatarget Population
 Metatarget population in Gest works by caching the
 metatarget inside of the Gest struct. When a metatarget
 is first created, it is set to be that value and
@@ -2993,13 +2997,13 @@ int mtpos;
 
 See =gest_addmetatarget= function for more usage
 on this stack.
-* Metabehaviors
-** Overview
+** Metabehaviors
+*** Overview
 The metabehavior is a special kind of behavior that is a
 collection of behaviors. Every time a target a metabehavior
 belongs to is selected, it has the ability to change
 which behavior is used.
-** Struct Declaration
+*** Struct Declaration
 Data for the metabehavior is encapsulated in a struct called
 =gest_metabehavior=. It contains an array of behaviors, the
 size, and a variable storing the current position.
@@ -3023,7 +3027,7 @@ struct gest_metabehavior {
     gest_behavior *behaviors;
 };
 #+END_SRC
-** Metabehavior allocation
+*** Metabehavior allocation
 A metabehavior is allocated with the function
 =metabehavior_alloc=.
 
@@ -3052,7 +3056,7 @@ static gest_metabehavior * metabehavior_alloc(gest_d *g, int sz)
     return mb;
 }
 #+END_SRC
-** Population (via Stack)
+*** Population (via Stack)
 Similar to the metatargets, population is done with a stack
 of metabehaviors.
 
@@ -3112,7 +3116,7 @@ static void set_behavior(gest_d *g, gest_bfunc tick, void *ud)
     gest_behavior_set(b, tick, ud);
 }
 #+END_SRC
-** Sequentional Behavior Selector
+*** Sequentional Behavior Selector
 #+NAME: static_funcdefs
 #+BEGIN_SRC c
 static gest_behavior* behave_seq(gest_target *t, gest_behavior *b);
