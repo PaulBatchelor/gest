@@ -880,6 +880,45 @@ int gest_addmetabehavior(gest_d *g, int sz)
     return 0;
 }
 #+END_SRC
+** Addmetanode
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_addmetanode(gest_d *g, int nbeats, int sz);
+#+END_SRC
+
+When a metanode is created, it creates the equivalent to
+a monoramp, then binds a metanode to it.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gest_addmetanode(gest_d *g, int nbeats, int sz)
+{
+    int rc;
+    gest_node *n;
+    gest_metanode *mn;
+
+    if (g->mnpos >= GEST_MNSTACK_SIZE) return 1;
+
+    rc = gest_monoramp(g, nbeats);
+
+    if (rc) return rc;
+
+    n = g->curnode;
+
+    mn = metanode_alloc(g, n, sz);
+
+    n->meta = mn;
+    n->get = node_seq;
+    mn->parent = n;
+
+    printf("metanode id is %d\n", n->id);
+    set_curnode(g, mn->nodes[0]);
+
+    g->mnstack[g->mnpos++] = mn;
+
+    return 0;
+}
+#+END_SRC
 * Behavior Commands
 Behaviors are the means by which one target gets to thep
 next target.
@@ -1376,6 +1415,7 @@ n->parent = NULL;
 #+END_SRC
 *** Node ID
 used for debugging.
+
 #+NAME: gest_node
 #+BEGIN_SRC c
 int id;
@@ -1384,6 +1424,30 @@ int id;
 #+NAME: gest_node_init
 #+BEGIN_SRC c
 n->id = -1;
+#+END_SRC
+*** Metanode
+Holds optional data for a metanode. NULL by default.
+
+#+NAME: gest_node
+#+BEGIN_SRC c
+gest_metanode *meta;
+#+END_SRC
+
+#+NAME: gest_node_init
+#+BEGIN_SRC c
+n->meta = NULL;
+#+END_SRC
+*** Children Getter
+Optional getter function that returns children of a node.
+
+#+NAME: gest_node
+#+BEGIN_SRC c
+gest_node* (*get)(gest_d *, gest_node *);
+#+END_SRC
+
+#+NAME: gest_node_init
+#+BEGIN_SRC c
+n->get = NULL;
 #+END_SRC
 ** Global Modifier Manipulation
 The Ramp Tree manipulates the
@@ -1614,17 +1678,18 @@ before the next target is set.
 static gest_node * dive_to_target(gest_d *g,
                                   gest_node *node)
 {
+    if (node->meta != NULL) node = get_node(g, node);
+
     if (node->target != NULL) {
         apply_modifier(g, node);
         return node;
     }
 
-
     while (node->target == NULL) {
         apply_modifier(g, node);
 
         /* go to left-most child */
-        node = node->children;
+        node = acquire_children(g, node);
         if (node == NULL) break;
     }
 
@@ -1663,6 +1728,40 @@ static void apply_modifier(gest_d *g, gest_node *node)
     } else if (node->type == NODE_MONORAMP) {
         g->den *= node->modifier;
     }
+}
+#+END_SRC
+*** Acquiring Children From Nodes
+Some level of abstraction now required for getting children
+from Nodes. This is done to make metanodes possible, which
+can change every time the node is descended upon.
+
+For now, it just does the behavior it did before.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_node* acquire_children(gest_d *g, gest_node *n);
+static gest_node* get_node(gest_d *g, gest_node *n);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_node* get_node(gest_d *g, gest_node *n)
+{
+    while (n->get != NULL) {
+        n = n->get(g, n);
+    }
+
+    return n;
+}
+
+static gest_node* acquire_children(gest_d *g, gest_node *n)
+{
+    gest_node *children;
+
+    children = n->children;
+    children = get_node(g, children);
+
+    return children;
 }
 #+END_SRC
 ** Target Getter
@@ -2479,14 +2578,22 @@ reaches the end of the phrase.
 {
     gest_node *next;
     gest_node *curr;
+    int metahunt;
+    gest_node *mnpar;
 
     next = NULL;
     curr = curnode;
+    metahunt = 0;
+    mnpar = NULL;
+
+    <<check_metanode_stack>>
 
     while (next == NULL) {
         int size;
         gest_node *last;
         int limit;
+
+        <<check_for_metanode_parent>>
 
         /* is there any room in the current node? */
 
@@ -3133,5 +3240,191 @@ static gest_behavior* behave_seq(gest_target *t, gest_behavior *b)
     if (mb->pos >= mb->size) mb->pos = 0;
 
     return &mb->behaviors[mb->pos++];
+}
+#+END_SRC
+** Metanodes
+Metanodes are ramp tree nodes whose underlying children
+can change. A metanode is essentially a monoramp that can
+have a fixed number of possibilities within the bounds
+of the ramp it takes up. Every time this node gets reached,
+it has an opportunity to select one of these possibilities.
+*** Struct Declaration
+Called =gest_metanode=. Basically an array of pointers to
+=gest_node= types.
+
+#+NAME: typedefs
+#+BEGIN_SRC c
+typedef struct gest_metanode gest_metanode;
+#+END_SRC
+
+#+NAME: structs
+#+BEGIN_SRC c
+struct gest_metanode {
+    int pos;
+    int size;
+    gest_node *parent;
+    gest_node **nodes;
+};
+#+END_SRC
+*** Allocation
+=metanode_alloc=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_metanode* metanode_alloc(gest_d *g,
+                                     gest_node *parent,
+                                     int sz);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_metanode* metanode_alloc(gest_d *g,
+                                     gest_node *parent,
+                                     int sz)
+{
+    gest_metanode *mn;
+    int i;
+
+    mn = gest_alloc(g, sizeof(gest_metanode));
+    mn->size = sz;
+    mn->pos = 0;
+    mn->parent = NULL;
+    mn->nodes = gest_alloc(g, sizeof(gest_node *) * sz);
+
+    for (i = 0; i < sz; i++) {
+        gest_node *n;
+
+        n = gest_alloc(g, sizeof(gest_node));
+        gest_node_init(n);
+        n->type = parent->type;
+        n->modifier = parent->modifier;
+        n->parent = parent;
+        n->id = g->nodepos;
+        g->nodepos++;
+        mn->nodes[i] = n;
+    }
+
+    return mn;
+}
+#+END_SRC
+*** Population and the Stack
+When a metanode is created, the instance gets pushed onto
+the stack.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+#define GEST_MNSTACK_SIZE 4
+gest_metanode *mnstack[GEST_MNSTACK_SIZE];
+int mnpos;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+{
+    int i;
+
+    for (i = 0; i < GEST_MNSTACK_SIZE; i++) {
+        g->mnstack[i] = NULL;
+    }
+
+    g->mnpos = 0;
+}
+#+END_SRC
+
+The metanode has all traits of a monoramp, with the addition
+a non-null metanode struct.
+
+When there is an active metanode, it interrupts the
+population of the ramp tree. Normally, tree population
+moves left to right with the use of targets. When a target
+reaches the end of a node, it goes on to the next
+consecutive node. When a metanode is active, the next
+node will loop back to the metanode, populating it
+until it fills up.
+
+
+How does gest know when to loop back to the metanode? Well,
+it first knows to check when there is a metanode on the
+stack.
+
+#+NAME: check_metanode_stack
+#+BEGIN_SRC c
+if (g->mnpos > 0) {
+    gest_metanode *mn;
+    metahunt = 1;
+
+    mn = g->mnstack[g->mnpos - 1];
+
+    if (mn != NULL) mnpar = mn->parent;
+}
+#+END_SRC
+
+A metanode belongs to a monoramp node, and this
+address will be known. During the search for the next node,
+it will check for this address, and if it finds it, it will
+be time to loop back.
+
+#+NAME: check_for_metanode_parent
+#+BEGIN_SRC c
+if (metahunt && curr == mnpar) {
+    <<loopback>>
+}
+#+END_SRC
+
+A loop-back rewinds the tree to the monoramp contained
+residing inside of the metanode. Along the way, it saves
+underlying tree it created inside of the metanode, and
+resets monoramp to be re-populated again.
+
+#+NAME: loopback
+#+BEGIN_SRC c
+gest_metanode *mn;
+next = curr;
+/* store children in metanode */
+
+printf("loopback!\n");
+
+mn = g->mnstack[g->mnpos - 1];
+
+next = mn->nodes[mn->pos++];
+
+if (mn->pos >= mn->size) {
+    printf("populated.\n");
+    g->mnpos--;
+    g->mnstack[g->mnpos] = NULL;
+    mn->pos = 0;
+}
+#+END_SRC
+
+Monoramps always have exactly one child. This child is
+the thing that gets stored.
+
+After storing, the metaramp will check and see if there
+are any more slots available. If not, it will pop itself
+off the stack.
+
+During performance, Gest is constantly traversing
+up and down the Ramp Tree, touching nodes going both ways.
+A metanode only changes its underlying children when
+it dives downwards to find a target in =dive_to_target=.
+*** Sequential Node Selector
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_node* node_seq(gest_d *g, gest_node *n);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_node* node_seq(gest_d *g, gest_node *n)
+{
+    gest_metanode *mn;
+
+    mn = n->meta;
+
+    if (mn->pos >= mn->size) mn->pos = 0;
+
+    printf("selecting %d\n", mn->pos);
+
+    return mn->nodes[mn->pos++];
 }
 #+END_SRC
