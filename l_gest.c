@@ -455,7 +455,7 @@ static lil_value_t l_gest_metanode(lil_t lil,
     SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
 
     nbeats = lil_to_integer(argv[0]);
-    sz = lil_to_integer(argv[0]);
+    sz = lil_to_integer(argv[1]);
 
     rc = gest_addmetanode(g, nbeats, sz);
 

@@ -911,8 +911,7 @@ int gest_addmetanode(gest_d *g, int nbeats, int sz)
     n->get = node_seq;
     mn->parent = n;
 
-    printf("metanode id is %d\n", n->id);
-    set_curnode(g, mn->nodes[0]);
+    set_curnode(g, mn->nodes[mn->pos++]);
 
     g->mnstack[g->mnpos++] = mn;
 
@@ -2544,6 +2543,7 @@ the new target.
 
     rc = last != NULL &&
         last->type == NODE_MONORAMP &&
+        last->meta == NULL &&
         last->target == NULL &&
         last->nchildren == 0;
 
@@ -3382,18 +3382,18 @@ gest_metanode *mn;
 next = curr;
 /* store children in metanode */
 
-printf("loopback!\n");
-
 mn = g->mnstack[g->mnpos - 1];
 
 next = mn->nodes[mn->pos++];
 
 if (mn->pos >= mn->size) {
-    printf("populated.\n");
     g->mnpos--;
     g->mnstack[g->mnpos] = NULL;
     mn->pos = 0;
 }
+
+set_curnode(g, next);
+break;
 #+END_SRC
 
 Monoramps always have exactly one child. This child is
@@ -3422,8 +3422,6 @@ static gest_node* node_seq(gest_d *g, gest_node *n)
     mn = n->meta;
 
     if (mn->pos >= mn->size) mn->pos = 0;
-
-    printf("selecting %d\n", mn->pos);
 
     return mn->nodes[mn->pos++];
 }
