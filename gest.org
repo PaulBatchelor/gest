@@ -546,6 +546,7 @@ struct gest_state {
     gest_behavior *behavior;
     int num;
     int den;
+    int please_wait;
 };
 #+END_SRC
 
@@ -566,6 +567,7 @@ static void init_state(gest_state *s)
     s->target = NULL;
     s->node = NULL;
     s->behavior = NULL;
+    s->please_wait = 0;
 }
 #+END_SRC
 * Core Commands
@@ -1935,6 +1937,9 @@ if (reset) {
         g->correction = 1.0;
         g->targetondeck = 1;
         g->phrase_selected = g->nxtstate.phrase;
+
+        /* reset if next state was told to wait */
+        g->nxtstate.please_wait = 0;
         return phs;
     }
 } else if (g->please_wait) {
@@ -1970,32 +1975,18 @@ the next node is already in place (presumably
 from the last time targetondeck was set, or initialization),
 and just needs to be swapped in.
 
-TODO: =shouldiwait= works under the assumption that the
-next phrase will always be different from the currently
-selected phrase. But this isn't necessarily true. A phrase
-that loops on itself will never wait. There needs to be
-better logic in place for handling this. Some sort of
-flag would probably be the clearest way to indicate that
-a new phrase is starting. Maybe =pleasewait= is all that is
-needed? More thought required.
+=please_wait= is cached as state, and gets turned on during
+=find_next_node=.
 
 #+NAME: update_targets
 #+BEGIN_SRC c
 if (g->targetondeck) {
     gest_state *s;
-    int shouldiwait;
-
     s = &g->nxtstate;
 
     g->targetondeck = 0;
 
-    /* non-matching non-NULL phrases indicate
-     * a new phrase */
-    shouldiwait =
-        s->phrase != NULL &&
-        s->phrase != g->phrase_selected;
-
-    if (shouldiwait) {
+    if (s->please_wait) {
         g->please_wait = 1;
         return 1.0;
     }
@@ -2124,6 +2115,7 @@ static void find_next_node(gest_d *g,
     gest_node *last_reverted;
     gest_phrase *phrase;
     int num, den;
+    int please_wait;
 
     next = NULL;
     last_reverted = NULL;
@@ -2131,6 +2123,7 @@ static void find_next_node(gest_d *g,
     num = g->num;
     den = g->den;
     phrase = g->phrase_selected;
+    please_wait = 0;
 
     while (next == NULL) {
         if (top == g->phrase_selected->top) {
@@ -2147,6 +2140,7 @@ static void find_next_node(gest_d *g,
                 if (next != NULL) {
                    next = dive_to_target(g, next);
                 }
+                please_wait = 1;
                 break;
             } else {
                 /* go to next child in top polyramp node */
@@ -2191,6 +2185,7 @@ static void find_next_node(gest_d *g,
     state->target = node_target(next);
     state->behavior = target_behavior(state->target);
     state->phrase = phrase;
+    state->please_wait = please_wait;
 
     /* restore old numerator and denominator */
 
