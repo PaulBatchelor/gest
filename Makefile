@@ -2,10 +2,7 @@ OBJ=gest.o skgest.o
 
 CFLAGS=-Wall -pedantic -O3 -g
 
-default: example lilgest
-
-example: $(OBJ) example.o
-	$(CC) $(CFLAGS) $(OBJ) example.o -o $@ -lsndkit
+default: lilgest
 
 lilgest: $(OBJ) lilgest.o l_gest.o
 	$(CC) $(CFLAGS) $(OBJ) l_gest.o lilgest.o -o $@ -lsndkit -lm
@@ -17,7 +14,6 @@ gest.c: gest.org
 	$(CC) -c $(CFLAGS) $< -o $@
 
 clean:
-	$(RM) $(OBJ) example.o lilgest.o l_gest.o
-	$(RM) example
+	$(RM) $(OBJ) lilgest.o l_gest.o
 	$(RM) gest.c gest.h
 	$(RM) lilgest
