@@ -1927,6 +1927,15 @@ the next node is already in place (presumably
 from the last time targetondeck was set, or initialization),
 and just needs to be swapped in.
 
+TODO: =shouldiwait= works under the assumption that the
+next phrase will always be different from the currently
+selected phrase. But this isn't necessarily true. A phrase
+that loops on itself will never wait. There needs to be
+better logic in place for handling this. Some sort of
+flag would probably be the clearest way to indicate that
+a new phrase is starting. Maybe =pleasewait= is all that is
+needed? More thought required.
+
 #+NAME: update_targets
 #+BEGIN_SRC c
 if (g->targetondeck) {
@@ -3426,3 +3435,27 @@ static gest_node* node_seq(gest_d *g, gest_node *n)
     return mn->nodes[mn->pos++];
 }
 #+END_SRC
+** Metaphrases (WIP)
+If you've been reading up to this point, you'll no
+doubt know what to expect here. A =metaphrase=
+is a special phrase containing phrases inside of it.
+Every time the phrase gets selected, the metaphrase
+gets an opportunity to select one of the phrases.
+*** Struct Declaration
+Similar to before, a =gest_metaphrase= has a position,
+size, and array of phrases. The parent phrase is stored
+here as well.
+*** Allocation
+Allocated with =metaphrase_alloc=. The number of phrases
+must be known, as well as the parent phrase.
+*** Population and the Stack
+Metaphrases are populated via a stack. They can be nested!
+This is similar to the constructs that have preceded it.
+
+Populating a metaphrase is similar to making a regular
+phrase, except it starts with a different beginning, but
+with the same ending.
+
+Phrases get selected during the process when the
+next node is found.
+*** Sequential Phrase Selector
