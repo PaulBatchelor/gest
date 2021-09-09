@@ -637,6 +637,7 @@ int gest_end(gest_d *g)
 
     if (count != top->modifier) return 1;
 
+    <<metaphrase_next_position>>
     return 0;
 }
 #+END_SRC
@@ -785,6 +786,7 @@ void gest_loopit(gest_d *g)
 {
     g->curtarget->next = g->toptarget;
     g->phrase_selected->next = g->phrase_top;
+    <<metaphrase_loopit>>
 }
 #+END_SRC
 ** Addmetatarget
@@ -948,8 +950,9 @@ int gest_addmetaphrase(gest_d *g, int sz)
     mp = metaphrase_alloc(g, sz);
 
     ph->get = phrase_seq;
+    ph->meta = mp;
 
-    g->mpstack[++g->mnpos] = mp;
+    g->mpstack[g->mppos++] = mp;
 
     return 0;
 }
@@ -3618,7 +3621,41 @@ if (g->mppos > 0) {
 
     } else {
         /* append to next available slot */
-        mp->phrases[mp->pos++] = phrase;
+        mp->phrases[mp->pos] = phrase;
+    }
+
+}
+#+END_SRC
+
+#+NAME: metaphrase_next_position
+#+BEGIN_SRC c
+if (g->mppos > 0) {
+    gest_metaphrase *mp;
+    mp = g->mpstack[g->mppos - 1];
+    mp->pos++;
+}
+#+END_SRC
+
+#+NAME: metaphrase_loopit
+#+BEGIN_SRC c
+if (g->mppos > 0) {
+    gest_metaphrase *mp;
+    mp = g->mpstack[g->mppos - 1];
+
+    if (mp->pos >= mp->size) {
+        int i;
+
+        /* pop from stack */
+        g->mppos--;
+        g->mpstack[g->mppos] = NULL;
+
+        /* current phrase last phrase in metaphrase, clear it */
+        g->phrase_selected = NULL;
+
+        /* all phrases should point to newly made phrase */
+        for (i = 0; i < mp->size; i++) {
+            mp->phrases[i]->next = g->phrase_top;
+        }
     }
 
 }
