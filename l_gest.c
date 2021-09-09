@@ -450,7 +450,7 @@ static lil_value_t l_gest_metanode(lil_t lil,
     int nbeats;
 
     core = lil_get_data(lil);
-    SKLIL_ARITY_CHECK(lil, "gest_target", argc, 2);
+    SKLIL_ARITY_CHECK(lil, "gest_metanode", argc, 2);
     rc = sk_core_generic_pop(core, (void **)&g);
     SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
 
@@ -461,6 +461,33 @@ static lil_value_t l_gest_metanode(lil_t lil,
 
     if (rc) {
         lil_set_error(lil, "Could not add metanode.");
+        return NULL;
+    }
+
+    sk_core_generic_push(core, g);
+    return NULL;
+}
+
+static lil_value_t l_gest_metaphrase(lil_t lil,
+                                     size_t argc,
+                                     lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+    int sz;
+
+    core = lil_get_data(lil);
+    SKLIL_ARITY_CHECK(lil, "gest_metaphrase", argc, 1);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+    sz = lil_to_integer(argv[0]);
+
+    rc = gest_addmetaphrase(g, sz);
+
+    if (rc) {
+        lil_set_error(lil, "Could not add metaphrase.");
         return NULL;
     }
 
@@ -492,4 +519,5 @@ void sklil_load_gest(lil_t lil)
     lil_register(lil, "gest_mediumgliss", l_gest_mediumgliss);
     lil_register(lil, "gest_metabehavior", l_gest_metabehavior);
     lil_register(lil, "gest_metanode", l_gest_metanode);
+    lil_register(lil, "gest_metaphrase", l_gest_metaphrase);
 }

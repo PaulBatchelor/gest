@@ -592,12 +592,13 @@ void gest_begin(gest_d *g, int beats, int div)
     gest_phrase *phrase;
 
     phrase = gest_alloc(g, sizeof(gest_phrase));
-
     phrase_init(g, phrase, beats, div);
 
     if (g->phrase_top == NULL) {
         g->phrase_top = phrase;
     }
+
+    <<append_metaphrase>>
 
     if (g->phrase_selected != NULL) {
         g->phrase_selected->next = phrase;
@@ -607,6 +608,7 @@ void gest_begin(gest_d *g, int beats, int div)
 
     /* TODO make this a targetondeck flag */
     set_curnode(g, g->phrase_selected->top);
+
 }
 #+END_SRC
 ** End
@@ -914,6 +916,40 @@ int gest_addmetanode(gest_d *g, int nbeats, int sz)
     set_curnode(g, mn->nodes[mn->pos++]);
 
     g->mnstack[g->mnpos++] = mn;
+
+    return 0;
+}
+#+END_SRC
+** Addmetaphrase
+The function =gest_addmetaphrase= will allocate a new
+phrase of arbitrary size and division
+(will be unused anyways), and then allocate a new instance
+of a metaphrase with =sz= phrases.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_addmetaphrase(gest_d *g, int sz);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gest_addmetaphrase(gest_d *g, int sz)
+{
+    gest_metaphrase *mp;
+    gest_phrase *ph;
+
+    if (g->mppos >= GEST_MPSTACK_SIZE) return 1;
+
+
+    gest_begin(g, 1, 1);
+
+    ph = g->phrase_selected;
+
+    mp = metaphrase_alloc(g, sz);
+
+    ph->get = phrase_seq;
+
+    g->mpstack[++g->mnpos] = mp;
 
     return 0;
 }
@@ -1244,6 +1280,8 @@ struct gest_phrase {
     SKFLT mod;
     int beats;
     gest_phrase *next;
+    gest_metaphrase *meta;
+    gest_phrase* (*get)(gest_d *, gest_phrase *);
 };
 #+END_SRC
 
@@ -1274,6 +1312,8 @@ static void phrase_init(gest_d *g,
     phrase->beats = beats;
     phrase->next = NULL;
     phrase->top = mkpolyramp(g, NULL, div);
+    phrase->meta = NULL;
+    phrase->get = NULL;
 }
 #+END_SRC
 * Ramp Tree
@@ -2096,6 +2136,7 @@ static void find_next_node(gest_d *g,
             if (top->next == NULL) {
                 /* next node is in next phrase */
                 phrase = phrase->next;
+                phrase = get_phrase(g, phrase);
                 if (phrase != NULL) next = phrase->top;
                 else next = NULL;
                 g->num = 1;
@@ -2152,6 +2193,21 @@ static void find_next_node(gest_d *g,
 
     g->num = num;
     g->den = den;
+}
+#+END_SRC
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_phrase* get_phrase(gest_d *g, gest_phrase *ph);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_phrase* get_phrase(gest_d *g, gest_phrase *ph)
+{
+    if (ph == NULL) return NULL;
+    while (ph->get != NULL) ph = ph->get(g, ph);
+    return ph;
 }
 #+END_SRC
 ** When a phrase is over, wraparound
@@ -3443,11 +3499,49 @@ Every time the phrase gets selected, the metaphrase
 gets an opportunity to select one of the phrases.
 *** Struct Declaration
 Similar to before, a =gest_metaphrase= has a position,
-size, and array of phrases. The parent phrase is stored
-here as well.
+size, and array of phrases. 
+
+#+NAME: typedefs
+#+BEGIN_SRC c
+typedef struct gest_metaphrase gest_metaphrase;
+#+END_SRC
+
+#+NAME: structs
+#+BEGIN_SRC c
+struct gest_metaphrase {
+    int pos;
+    int size;
+    gest_phrase **phrases;
+};
+#+END_SRC
 *** Allocation
 Allocated with =metaphrase_alloc=. The number of phrases
 must be known, as well as the parent phrase.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_metaphrase * metaphrase_alloc(gest_d *g, int sz);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_metaphrase * metaphrase_alloc(gest_d *g, int sz)
+{
+    gest_metaphrase *mp;
+    int i;
+
+    mp = gest_alloc(g, sizeof(gest_metaphrase));
+    mp->size = sz;
+    mp->pos = 0;
+    mp->phrases = gest_alloc(g, sizeof(gest_phrase *) * sz);
+
+    for (i = 0; i < sz; i++) {
+        mp->phrases[i] = NULL;
+    }
+
+    return mp;
+}
+#+END_SRC
 *** Population and the Stack
 Metaphrases are populated via a stack. They can be nested!
 This is similar to the constructs that have preceded it.
@@ -3458,4 +3552,93 @@ with the same ending.
 
 Phrases get selected during the process when the
 next node is found.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+#define GEST_MPSTACK_SIZE 4
+gest_metaphrase *mpstack[GEST_MPSTACK_SIZE];
+int mppos;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+{
+    int i;
+
+    for (i = 0; i < GEST_MPSTACK_SIZE; i++) {
+        g->mpstack[i] = NULL;
+    }
+
+    g->mppos = 0;
+}
+#+END_SRC
+
+append newly created phrase to last metaphrase on stack.
+
+some fancy footwork below, so pay attention.
+
+appending of the metaphrase happens when a new phrase
+is created, but before it is set to be the selected phrase.
+
+if a metaphrase is in play, it will be on the stack. The last
+item is peaked at. If the position is all filled up, it means
+the newly created phrase is actually the *next* phrase.
+Phrases use pointers to indicate the next phrase, so all
+the phrases managed by the metaphrase must have their
+next pointers explicitely set. The metaphrase is then
+popped from the stack. It is also assumed that the currently
+selected phrase at this moment is the last phrase of the
+metaphrase. This doesn't need to be selected anymore, so
+it is cleared.
+
+Most of the time, the metaphrase has phrases to fill. In
+this situation, it will append the newly created phrase to
+the next available slot in the metaphrase.
+
+#+NAME: append_metaphrase
+#+BEGIN_SRC c
+if (g->mppos > 0) {
+    gest_metaphrase *mp;
+    mp = g->mpstack[g->mppos - 1];
+
+    if (mp->pos >= mp->size) {
+        int i;
+
+        /* pop from stack */
+        g->mppos--;
+        g->mpstack[g->mppos] = NULL;
+
+        /* current phrase last phrase in metaphrase, clear it */
+        g->phrase_selected = NULL;
+
+        /* all phrases should point to newly made phrase */
+        for (i = 0; i < mp->size; i++) {
+            mp->phrases[i]->next = phrase;
+        }
+
+    } else {
+        /* append to next available slot */
+        mp->phrases[mp->pos++] = phrase;
+    }
+
+}
+#+END_SRC
 *** Sequential Phrase Selector
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_phrase* phrase_seq(gest_d *g, gest_phrase *ph);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_phrase* phrase_seq(gest_d *g, gest_phrase *ph)
+{
+    gest_metaphrase *mp;
+
+    mp = ph->meta;
+
+    if (mp->pos >= mp->size) mp->pos = 0;
+
+    return mp->phrases[mp->pos++];
+}
+#+END_SRC

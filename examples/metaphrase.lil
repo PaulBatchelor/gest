@@ -1,0 +1,56 @@
+func sequence {} {
+    regget 1
+    dup
+    gest_begin 2 2
+    gest_target 0
+    gest_smallgliss
+    gest_target 7
+    gest_smallgliss
+    gest_end
+
+    gest_metaphrase 2
+        gest_begin 1 1
+        gest_target 9
+        gest_smallgliss
+        gest_end
+
+        gest_begin 2 3
+        gest_target 14
+        gest_smallgliss
+        gest_target 16
+        gest_smallgliss
+        gest_target 12
+        gest_gliss
+        gest_end
+
+    gest_loopit
+    gest_finish
+    regget 0
+    gesticulate zz zz
+}
+
+gest_new
+regset zz 1
+
+
+regget 1
+gestweight zz
+mul zz 0.8
+add zz 2
+
+phasor zz 0
+hold
+regset zz 0
+
+gensine [tabnew 8192]
+
+mtof [add [sequence] 60]
+fmpair zz zz [param 1] [param 1] [param 1] [param 0]
+mul zz 0.5
+
+wavout zz "metaphrase.wav"
+
+regget 0
+unhold zz
+
+computes 30
