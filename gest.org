@@ -3674,3 +3674,98 @@ static gest_phrase* phrase_seq(gest_d *g, gest_phrase *ph)
     return mp->phrases[mp->pos++];
 }
 #+END_SRC
+* Random Number Generation
+Gest implements an internal PRNG using a simple
+LCG, similar to many implementations of rand().
+This is done to make Gest more consistent across
+platforms.
+
+It is (perhaps erroneously) assumed that long integer
+values are at least 32-bits long.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+unsigned long rng;
+#+END_SRC
+
+The initial RNG state can be seeded with =gest_seed=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_seed(gest_d *g, unsigned long rng);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_seed(gest_d *g, unsigned long rng)
+{
+    g->rng = rng;
+}
+#+END_SRC
+
+At initializatin, it is seeded with the system =rand=
+function. For more consistent results, =gest_seed= can
+be explicit called immediately after initialization.
+
+#+NAME: init
+#+BEGIN_SRC c
+gest_seed(g, rand());
+#+END_SRC
+
+A random value is produced with =gest_rand=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+unsigned long gest_rand(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+unsigned long gest_rand(gest_d *g)
+{
+    g->rng = (1103515245 * g->rng + 12345) % 2147483648;
+    return g->rng;
+}
+#+END_SRC
+
+A normalized floating point value can be returned with
+=gest_randf=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+SKFLT gest_randf(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+SKFLT gest_randf(gest_d *g)
+{
+    unsigned long x;
+
+    x = gest_rand(g);
+
+    return (SKFLT)x / 2147483648.0;
+}
+#+END_SRC
+
+A random integer between 0 and N-1 can be
+found with =gest_randi=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_randi(gest_d *g, int N);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gest_randi(gest_d *g, int N)
+{
+    int x;
+
+    x = floor(gest_randf(g) * N);
+
+    if (x >= N) x = N - 1;
+
+    return x;
+}
+#+END_SRC
