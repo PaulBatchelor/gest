@@ -8,7 +8,8 @@ func sequence {} {
     gest_smallgliss
     gest_end
 
-    gest_metaphrase 2
+    gest_metaphrase 3
+        gest_randphrase
         gest_begin 1 1
         gest_target 9
         gest_smallgliss
@@ -20,6 +21,12 @@ func sequence {} {
         gest_target 16
         gest_smallgliss
         gest_target 12
+        gest_gliss
+        gest_end
+
+        gest_begin 3 3
+        gest_monoramp 3
+        gest_target 2
         gest_gliss
         gest_end
 

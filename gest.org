@@ -955,6 +955,7 @@ int gest_addmetaphrase(gest_d *g, int sz)
 
     ph->get = phrase_seq;
     ph->meta = mp;
+    mp->parent = ph;
 
     g->mpstack[g->mppos++] = mp;
 
@@ -1026,6 +1027,29 @@ int gest_randnode(gest_d *g)
     mn = g->mnstack[g->mnpos - 1];
 
     mn->parent->get = node_random;
+    return 0;
+}
+#+END_SRC
+** Randphrase
+The function =gest_randphrase= configures the last
+metaphrase to choose phrases randomly.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_randphrase(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gest_randphrase(gest_d *g)
+{
+    gest_metaphrase *mp;
+
+    if (g->mppos <= 0) return 1;
+
+    mp = g->mpstack[g->mppos - 1];
+
+    mp->parent->get = phrase_random;
     return 0;
 }
 #+END_SRC
@@ -3635,6 +3659,7 @@ typedef struct gest_metaphrase gest_metaphrase;
 struct gest_metaphrase {
     int pos;
     int size;
+    gest_phrase *parent;
     gest_phrase **phrases;
 };
 #+END_SRC
@@ -3798,6 +3823,23 @@ static gest_phrase* phrase_seq(gest_d *g, gest_phrase *ph)
     if (mp->pos >= mp->size) mp->pos = 0;
 
     return mp->phrases[mp->pos++];
+}
+#+END_SRC
+*** Random Phrase Selector
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_phrase* phrase_random(gest_d *g, gest_phrase *ph);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_phrase* phrase_random(gest_d *g, gest_phrase *ph)
+{
+    gest_metaphrase *mp;
+
+    mp = ph->meta;
+
+    return mp->phrases[gest_randi(g, mp->size)];
 }
 #+END_SRC
 * Random Number Generation
