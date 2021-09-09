@@ -11,6 +11,7 @@ func sequence {} {
     gest_smallgliss
 
     gest_metatarget 5
+        gest_randtarget
         gest_metatarget 2
             gest_target 7
             gest_smallgliss

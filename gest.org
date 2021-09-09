@@ -758,7 +758,7 @@ void gest_finish(gest_d *g)
     top = dive_to_target(g, g->phrase_top->top);
 
     set_curnode(g, top);
-    target = node_target(top);
+    target = node_target(g, top);
     target->curbehavior = target_behavior(target);
     set_curtarget(g, target);
 
@@ -827,6 +827,7 @@ int gest_addmetatarget(gest_d *g, int sz)
 
     t->get = get_seq;
     t->meta = mt;
+    mt->parent = t;
 
     /* push to stack */
     g->mtstack[g->mtpos++] = mt;
@@ -956,6 +957,28 @@ int gest_addmetaphrase(gest_d *g, int sz)
 
     g->mpstack[g->mppos++] = mp;
 
+    return 0;
+}
+#+END_SRC
+** Randtarget
+The function =gest_randtarget= configures the last
+metatarget to choose targets randomly.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_randtarget(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gest_randtarget(gest_d *g)
+{
+    gest_metatarget *mt;
+    if (g->mtpos <= 0) return 1;
+
+    mt = g->mtstack[g->mtpos - 1];
+
+    mt->parent->get = target_random;
     return 0;
 }
 #+END_SRC
@@ -1815,12 +1838,12 @@ of abstraction is needed for metatargets.
 
 #+NAME: static_funcdefs
 #+BEGIN_SRC c
-static gest_target *node_target(gest_node *node);
+static gest_target *node_target(gest_d *g, gest_node *node);
 #+END_SRC
 
 #+NAME: funcs
 #+BEGIN_SRC c
-static gest_target *node_target(gest_node *node)
+static gest_target *node_target(gest_d *g, gest_node *node)
 {
     gest_target *t;
 
@@ -1830,7 +1853,7 @@ static gest_target *node_target(gest_node *node)
 
     if (node->target != NULL && node->target->get != NULL) {
         while (1) {
-            t = t->get(node, t);
+            t = t->get(g, t);
             if (t->meta == NULL) break;
         }
     }
@@ -2182,7 +2205,7 @@ static void find_next_node(gest_d *g,
     state->num = g->num;
     state->den = g->den;
     state->node = next;
-    state->target = node_target(next);
+    state->target = node_target(g, next);
     state->behavior = target_behavior(state->target);
     state->phrase = phrase;
     state->please_wait = please_wait;
@@ -2472,7 +2495,7 @@ struct gest_target {
     SKFLT (*mix)(gest_d *, SKFLT, SKFLT, SKFLT);
     void *ud; /* user data attached to this target */
     gest_target *next;
-    gest_target* (*get)(gest_node *, gest_target *);
+    gest_target* (*get)(gest_d *, gest_target *);
     gest_metatarget *meta;
     <<temporal_weight>>
 };
@@ -3074,31 +3097,9 @@ typedef struct gest_metatarget gest_metatarget;
 struct gest_metatarget {
     int pos;
     int size;
+    gest_target *parent;
     gest_target **targets;
 };
-#+END_SRC
-
-By default, a metatarget will choose targets in sequence.
-This is done by overriding the default "get" callback
-in the target.
-
-#+NAME: static_funcdefs
-#+BEGIN_SRC c
-static gest_target *get_seq(gest_node *n, gest_target *t);
-#+END_SRC
-
-#+NAME: funcs
-#+BEGIN_SRC c
-static gest_target *get_seq(gest_node *n, gest_target *t)
-{
-    gest_metatarget *mt;
-
-    mt = t->meta;
-
-    if (mt->pos >= mt->size) mt->pos = 0;
-
-    return mt->targets[mt->pos++];
-}
 #+END_SRC
 *** Metatarget Allocation
 A metatarget is allocated with the function
@@ -3167,6 +3168,49 @@ int mtpos;
 
 See =gest_addmetatarget= function for more usage
 on this stack.
+*** Sequential target chooser
+By default, a metatarget will choose targets in sequence.
+This is done by overriding the default "get" callback
+in the target.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_target *get_seq(gest_d *g, gest_target *t);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_target *get_seq(gest_d *g, gest_target *t)
+{
+    gest_metatarget *mt;
+
+    mt = t->meta;
+
+    if (mt->pos >= mt->size) mt->pos = 0;
+
+    return mt->targets[mt->pos++];
+}
+#+END_SRC
+*** Random target chooser
+The random target chooser =target_random= will
+randomly choose a target from a metatarget.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_target *target_random(gest_d *g, gest_target *t);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_target *target_random(gest_d *g, gest_target *t)
+{
+    gest_metatarget *mt;
+
+    mt = t->meta;
+
+    return mt->targets[gest_randi(g, mt->size)];
+}
+#+END_SRC
 ** Metabehaviors
 *** Overview
 The metabehavior is a special kind of behavior that is a
