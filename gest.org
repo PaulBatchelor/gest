@@ -759,7 +759,7 @@ void gest_finish(gest_d *g)
 
     set_curnode(g, top);
     target = node_target(g, top);
-    target->curbehavior = target_behavior(target);
+    target->curbehavior = target_behavior(g, target);
     set_curtarget(g, target);
 
     init_state(&g->nxtstate);
@@ -881,6 +881,7 @@ int gest_addmetabehavior(gest_d *g, int sz)
 
     b->get = behave_seq;
     b->meta = mb;
+    mb->parent = b;
 
     /* push to stack */
     g->mbstack[g->mbpos++] = mb;
@@ -979,6 +980,29 @@ int gest_randtarget(gest_d *g)
     mt = g->mtstack[g->mtpos - 1];
 
     mt->parent->get = target_random;
+    return 0;
+}
+#+END_SRC
+** Randbehavior
+The function =gest_randbehavior= configures the last
+metabehavior to choose behaviors randomly.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_randbehavior(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gest_randbehavior(gest_d *g)
+{
+    gest_metabehavior *mb;
+
+    if (g->mbpos <= 0) return 1;
+
+    mb = g->mbstack[g->mbpos - 1];
+
+    mb->parent->get = behave_random;
     return 0;
 }
 #+END_SRC
@@ -2206,7 +2230,7 @@ static void find_next_node(gest_d *g,
     state->den = g->den;
     state->node = next;
     state->target = node_target(g, next);
-    state->behavior = target_behavior(state->target);
+    state->behavior = target_behavior(g, state->target);
     state->phrase = phrase;
     state->please_wait = please_wait;
 
@@ -2875,7 +2899,7 @@ typedef SKFLT (* gest_bfunc) (gest_d *, SKFLT, void *);
 struct gest_behavior {
     gest_bfunc tick;
     void *ud;
-    gest_behavior * (*get)(gest_target *, gest_behavior *b);
+    gest_behavior * (*get)(gest_d *, gest_behavior *b);
     gest_metabehavior *meta;
 };
 #+END_SRC
@@ -2931,12 +2955,12 @@ SKFLT gest_behavior_tick(gest_behavior *b, gest_d *g, SKFLT a)
 ** Behavior Getter From Target
 #+NAME: static_funcdefs
 #+BEGIN_SRC c
-static gest_behavior * target_behavior(gest_target *t);
+static gest_behavior * target_behavior(gest_d *g, gest_target *t);
 #+END_SRC
 
 #+NAME: funcs
 #+BEGIN_SRC c
-static gest_behavior * target_behavior(gest_target *t)
+static gest_behavior * target_behavior(gest_d *g, gest_target *t)
 {
     gest_behavior *b;
 
@@ -2946,7 +2970,7 @@ static gest_behavior * target_behavior(gest_target *t)
 
     if (b != NULL && b->get != NULL) {
         while (1) {
-            b = b->get(t, b);
+            b = b->get(g, b);
             if (b->meta == NULL || b->get == NULL) break;
         }
     }
@@ -3168,7 +3192,7 @@ int mtpos;
 
 See =gest_addmetatarget= function for more usage
 on this stack.
-*** Sequential target chooser
+*** Sequential Target Selector
 By default, a metatarget will choose targets in sequence.
 This is done by overriding the default "get" callback
 in the target.
@@ -3191,7 +3215,7 @@ static gest_target *get_seq(gest_d *g, gest_target *t)
     return mt->targets[mt->pos++];
 }
 #+END_SRC
-*** Random target chooser
+*** Random Target Selector
 The random target chooser =target_random= will
 randomly choose a target from a metatarget.
 
@@ -3238,6 +3262,7 @@ allocated here.
 struct gest_metabehavior {
     int pos;
     int size;
+    gest_behavior *parent;
     gest_behavior *behaviors;
 };
 #+END_SRC
@@ -3333,12 +3358,12 @@ static void set_behavior(gest_d *g, gest_bfunc tick, void *ud)
 *** Sequentional Behavior Selector
 #+NAME: static_funcdefs
 #+BEGIN_SRC c
-static gest_behavior* behave_seq(gest_target *t, gest_behavior *b);
+static gest_behavior* behave_seq(gest_d *g, gest_behavior *b);
 #+END_SRC
 
 #+NAME: funcs
 #+BEGIN_SRC c
-static gest_behavior* behave_seq(gest_target *t, gest_behavior *b)
+static gest_behavior* behave_seq(gest_d *g, gest_behavior *b)
 {
     gest_metabehavior *mb;
 
@@ -3347,6 +3372,23 @@ static gest_behavior* behave_seq(gest_target *t, gest_behavior *b)
     if (mb->pos >= mb->size) mb->pos = 0;
 
     return &mb->behaviors[mb->pos++];
+}
+#+END_SRC
+*** Random Behavior Selector
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_behavior* behave_random(gest_d *g, gest_behavior *b);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_behavior* behave_random(gest_d *g, gest_behavior *b)
+{
+    gest_metabehavior *mb;
+
+    mb = b->meta;
+
+    return &mb->behaviors[gest_randi(g, mb->size)];
 }
 #+END_SRC
 ** Metanodes
@@ -3533,7 +3575,7 @@ static gest_node* node_seq(gest_d *g, gest_node *n)
     return mn->nodes[mn->pos++];
 }
 #+END_SRC
-** Metaphrases (WIP)
+** Metaphrases
 If you've been reading up to this point, you'll no
 doubt know what to expect here. A =metaphrase=
 is a special phrase containing phrases inside of it.

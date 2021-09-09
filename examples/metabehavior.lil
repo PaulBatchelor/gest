@@ -4,6 +4,7 @@ func sequence {} {
     gest_begin 1 2
     gest_target 0
     gest_metabehavior 7
+        gest_randbehavior
         gest_step
         gest_smallgliss
         gest_mediumgliss
