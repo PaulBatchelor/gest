@@ -1006,6 +1006,29 @@ int gest_randbehavior(gest_d *g)
     return 0;
 }
 #+END_SRC
+** Randnode
+The function =gest_randnode= configures the last
+metanode to choose nodes randomly.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_randnode(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gest_randnode(gest_d *g)
+{
+    gest_metanode *mn;
+
+    if (g->mnpos <= 0) return 1;
+
+    mn = g->mnstack[g->mnpos - 1];
+
+    mn->parent->get = node_random;
+    return 0;
+}
+#+END_SRC
 * Behavior Commands
 Behaviors are the means by which one target gets to thep
 next target.
@@ -3573,6 +3596,23 @@ static gest_node* node_seq(gest_d *g, gest_node *n)
     if (mn->pos >= mn->size) mn->pos = 0;
 
     return mn->nodes[mn->pos++];
+}
+#+END_SRC
+*** Random Node Selector
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_node* node_random(gest_d *g, gest_node *n);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_node* node_random(gest_d *g, gest_node *n)
+{
+    gest_metanode *mn;
+
+    mn = n->meta;
+
+    return mn->nodes[gest_randi(g, mn->size)];
 }
 #+END_SRC
 ** Metaphrases

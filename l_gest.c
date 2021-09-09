@@ -541,6 +541,29 @@ static lil_value_t l_gest_randbehavior(lil_t lil,
     return NULL;
 }
 
+static lil_value_t l_gest_randnode(lil_t lil,
+                                   size_t argc,
+                                   lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+
+    core = lil_get_data(lil);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+    rc = gest_randnode(g);
+
+    if (rc) {
+        lil_set_error(lil, "Could not configure randnode.");
+        return NULL;
+    }
+
+    sk_core_generic_push(core, g);
+    return NULL;
+}
+
 void sklil_load_gest(lil_t lil)
 {
     lil_register(lil, "gest_new", gest_new);
@@ -568,4 +591,5 @@ void sklil_load_gest(lil_t lil)
     lil_register(lil, "gest_metaphrase", l_gest_metaphrase);
     lil_register(lil, "gest_randtarget", l_gest_randtarget);
     lil_register(lil, "gest_randbehavior", l_gest_randbehavior);
+    lil_register(lil, "gest_randnode", l_gest_randnode);
 }
