@@ -4053,3 +4053,47 @@ static void do_actions(gest_d *g, gest_target *t)
     }
 }
 #+END_SRC
+* Scalars
+A =scalar= is a mostly constant value that is able
+to be changed every time a new target happens. In most
+situations, scalars can also change values with
+sample accurate timing alongside the target they
+are attached to (more on this later).
+
+One good application for scalars are for use as gate
+signals when using gest to sequence melody. A target
+can change an arbitrary number of scalars, so it is
+a good way to add some elementary multi-dimensional
+control that is correlated with a gesture.
+
+The data for a scalar is contained in a struct called
+=gest_scalar=. The scalar holds two values, a =current=,
+and =next= value, as well as an integer marking block
+position =pos=. When non-negative, the position will mark
+at what point in an active audio buffer a value has changed.
+Anything before it is the current value, anything on or
+after it is the next value.
+
+The current/next value approach with a position flag allows
+for up to one change to happen inside of a audio block. In
+patchwerk, this is typically a block size of 64 samples.
+This means targets cannot be spaced less thans than 1ms
+apart. For most situations, this is an acceptable
+limitation. As a result, what is achieved is a very
+efficient means for sample accurate timing.
+
+Scalars are external to an instance of gest, and are
+connected to it via an action.
+
+The function =action_scalar= creates a new action for
+a target that sets the input scalar to a particular value.
+The action will set the next value of the scalar, and set
+the position.
+
+In order for scalar logic to work properly, the instance of
+Gest must be computed before the scalar value is computed.
+That way, the scalar value gets updated properly.
+
+The scalar node itself is beyond the scope of this document,
+but an implementation of a scalar node using sndkit is
+available in this project.
