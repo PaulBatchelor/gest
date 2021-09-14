@@ -226,7 +226,7 @@ static void set_curtarget(gest_d *g, gest_target *target)
 {
     g->curtarget = target;
     g->curval = target->value;
-    apply_weight(g, target);
+    do_actions(g, target);
 }
 #+END_SRC
 
@@ -1328,12 +1328,7 @@ void gest_mass(gest_d *g, SKFLT mass);
 #+BEGIN_SRC c
 void gest_mass(gest_d *g, SKFLT mass)
 {
-    gest_target *t;
-
-    t = g->curtarget;
-
-    t->mass = mass;
-    t->mass_mode = WEIGHT_ABSOLUTE;
+    action_mass(g, g->curtarget, mass);
 }
 #+END_SRC
 ** inertia
@@ -1348,12 +1343,7 @@ void gest_inertia(gest_d *g, SKFLT inertia);
 #+BEGIN_SRC c
 void gest_inertia(gest_d *g, SKFLT inertia)
 {
-    gest_target *t;
-
-    t = g->curtarget;
-
-    t->inertia = inertia;
-    t->inertia_mode = WEIGHT_ABSOLUTE;
+    action_inertia(g, g->curtarget, inertia);
 }
 #+END_SRC
 ** TODO shrink/grow
@@ -2814,84 +2804,65 @@ the conductor signal generator. Mass is the amount used to
 speed up or slowdown the tempo. Inertia is the speed at
 which it changes.
 
-#+NAME: gest_target
-#+BEGIN_SRC c
-SKFLT mass;
-SKFLT inertia;
-#+END_SRC
+When a target changes global inertia or mass, it does so
+through an action.
 
-By default, they are set to have instantaneous mass
-and weight.
-
-#+NAME: gest_target_init
-#+BEGIN_SRC c
-t->mass = 0;
-t->inertia = 0;
-#+END_SRC
-
-Inertial values are in units of seconds. Positive values
-only. Will be clamped.
-
-Temporal weight values can either be relative or absolute,
-determined by a flag. They are in range -120 to 120. 120 is
-used for its highly divisble properites.
-
-Masses and inertial values can mean different things, such
-as relative or absolute increases. They can
-also be ignored entirely. This is indicated by the
-mode flags =mass_mode= and =inertia_mode=.
-
-#+NAME: gest_target
-#+BEGIN_SRC c
-int mass_mode;
-int inertia_mode;
-#+END_SRC
-
-#+NAME: enums
-#+BEGIN_SRC c
-enum {
-    WEIGHT_IGNORE,
-    WEIGHT_ABSOLUTE,
-    WEIGHT_RELATIVE
-};
-#+END_SRC
-
-By default, both mass and inertia are set to be ignored.
-
-#+NAME: gest_target_init
-#+BEGIN_SRC c
-t->mass_mode = WEIGHT_IGNORE;
-t->inertia_mode = WEIGHT_IGNORE;
-#+END_SRC
-
-Temporal weight can be applied globally using the local
-function =apply_weight=. If the value is of type
-=WEIGHT_ABSOLUTE=, it will set the value directly. If
-it is =WEIGHT_RELATIVE=, it will treat the incoming
-value as a percentage and add it accordingly.
-
-values set to be =WEIGHT_IGNORE= will be ignored entirely.
+The current actions implemented include directly setting
+the mass and inertia values. The action callbacks for these
+are =update_mass= and =update_inertia=.
 
 #+NAME: static_funcdefs
 #+BEGIN_SRC c
-static void apply_weight(gest_d *g, gest_target *t);
+static void update_mass(gest_d *g, void *ud, int pos);
+static void update_inertia(gest_d *g, void *ud, int pos);
 #+END_SRC
 
 #+NAME: funcs
 #+BEGIN_SRC c
-static void update_weightval(SKFLT val, int flag, SKFLT *out)
+static void update_mass(gest_d *g, void *ud, int pos)
 {
-    if (flag == WEIGHT_ABSOLUTE) {
-        *out = val;
-    } else if (flag == WEIGHT_RELATIVE) {
-        *out += (*out) * val;
-    }
+    SKFLT *mass;
+    mass = (SKFLT *) ud;
+    g->mass = *mass;
 }
 
-static void apply_weight(gest_d *g, gest_target *t)
+static void update_inertia(gest_d *g, void *ud, int pos)
 {
-    update_weightval(t->mass, t->mass_mode, &g->mass);
-    update_weightval(t->inertia, t->inertia_mode, &g->inertia);
+    SKFLT *inertia;
+    inertia = (SKFLT *) ud;
+    g->inertia = *inertia;
+}
+#+END_SRC
+
+These can be appended to targets with =action_mass=
+and =action_inertia=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void action_mass(gest_d *g, gest_target *t, SKFLT mass);
+static void action_inertia(gest_d *g, gest_target *t, SKFLT interia);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void action_mass(gest_d *g, gest_target *t, SKFLT mass)
+{
+    SKFLT *pmass;
+
+    pmass = gest_alloc(g, sizeof(SKFLT));
+    *pmass = mass;
+
+    append_action(g, t, update_mass, pmass);
+}
+
+static void action_inertia(gest_d *g, gest_target *t, SKFLT inertia)
+{
+    SKFLT *pinertia;
+
+    pinertia = gest_alloc(g, sizeof(SKFLT));
+    *pinertia = inertia;
+
+    append_action(g, t, update_inertia, pinertia);
 }
 #+END_SRC
 ** Set Mix Callback
@@ -4041,6 +4012,7 @@ static void append_action(gest_d *g,
 
     if (lst->tail != NULL) lst->tail->next = a;
     lst->tail = a;
+    lst->sz++;
 }
 #+END_SRC
 
@@ -4050,3 +4022,34 @@ the instance of gest, the user data associated with
 the action, and an integer value representing the current
 sample position inside the current render block. This
 position can be used for sample-accurate timing.
+
+When a target is set up to be the current target, it
+calls the actions inside the action list. This is called
+=do_actions=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void do_actions(gest_d *g, gest_target *t);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void do_actions(gest_d *g, gest_target *t)
+{
+    int pos;
+    gest_actionlist *lst;
+    gest_action *a;
+    int i;
+
+    lst = &t->lst;
+
+    a = lst->head;
+
+    pos = 0; /* TODO: work in later */
+
+    for (i = 0; i < lst->sz; i++) {
+        a->fun(g, a->data, pos);
+        a = a->next;
+    }
+}
+#+END_SRC
