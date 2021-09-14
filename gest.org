@@ -95,7 +95,7 @@ typedef struct gest_d gest_d;
 
 #+NAME: structs
 #+BEGIN_SRC c
-<<gest_target>>
+<<struct_gest_target>>
 <<struct_ramptree>>
 <<struct_phrase>>
 <<struct_collection>>
@@ -2556,9 +2556,10 @@ addition to being referenced in the node they belong to.
 Targets need to know what target is coming next (if there
 is one coming next).
 
-#+NAME: gest_target
+#+NAME: struct_gest_target
 #+BEGIN_SRC c
 <<gest_behavior>>
+<<gest_actionlist_struct>>
 struct gest_target {
     SKFLT value;
     gest_behavior behavior;
@@ -2568,7 +2569,7 @@ struct gest_target {
     gest_target *next;
     gest_target* (*get)(gest_d *, gest_target *);
     gest_metatarget *meta;
-    <<temporal_weight>>
+    <<gest_target>>
 };
 #+END_SRC
 ** Initialization
@@ -2589,7 +2590,7 @@ void gest_target_init(gest_target *t)
     t->meta = NULL;
     gest_behavior_init(&t->behavior);
     t->curbehavior = &t->behavior;
-    <<init_temporal_weight>>
+    <<gest_target_init>>
 }
 #+END_SRC
 
@@ -2813,7 +2814,7 @@ the conductor signal generator. Mass is the amount used to
 speed up or slowdown the tempo. Inertia is the speed at
 which it changes.
 
-#+NAME: temporal_weight
+#+NAME: gest_target
 #+BEGIN_SRC c
 SKFLT mass;
 SKFLT inertia;
@@ -2822,7 +2823,7 @@ SKFLT inertia;
 By default, they are set to have instantaneous mass
 and weight.
 
-#+NAME: init_temporal_weight
+#+NAME: gest_target_init
 #+BEGIN_SRC c
 t->mass = 0;
 t->inertia = 0;
@@ -2840,7 +2841,7 @@ as relative or absolute increases. They can
 also be ignored entirely. This is indicated by the
 mode flags =mass_mode= and =inertia_mode=.
 
-#+NAME: temporal_weight
+#+NAME: gest_target
 #+BEGIN_SRC c
 int mass_mode;
 int inertia_mode;
@@ -2857,7 +2858,7 @@ enum {
 
 By default, both mass and inertia are set to be ignored.
 
-#+NAME: init_temporal_weight
+#+NAME: gest_target_init
 #+BEGIN_SRC c
 t->mass_mode = WEIGHT_IGNORE;
 t->inertia_mode = WEIGHT_IGNORE;
@@ -3937,3 +3938,115 @@ int gest_randi(gest_d *g, int N)
     return x;
 }
 #+END_SRC
+* Actions
+An action in Gest is an event that can happen when
+a new target is selected.
+
+#+NAME: typedefs
+#+BEGIN_SRC c
+typedef struct gest_action gest_action;
+#+END_SRC
+
+An action is callback that can have it's own mutable
+state attached to it. It is part of a linked list entry,
+so it has a =next= pointer as well.
+
+#+NAME: structs
+#+BEGIN_SRC c
+struct gest_action {
+    void (*fun)(gest_d*, void*, int);
+    void *data;
+    gest_action *next;
+};
+#+END_SRC
+
+An action lives inside of a list of actions, creatively
+referred to as an action list.
+
+#+NAME: typedefs
+#+BEGIN_SRC c
+typedef struct gest_actionlist gest_actionlist;
+#+END_SRC
+
+#+NAME: gest_actionlist_struct
+#+BEGIN_SRC c
+struct gest_actionlist {
+    gest_action *head;
+    gest_action *tail;
+    int sz;
+};
+#+END_SRC
+
+An actionlist is part of a target.
+
+#+NAME: gest_target
+#+BEGIN_SRC c
+gest_actionlist lst;
+#+END_SRC
+
+#+NAME: gest_target_init
+#+BEGIN_SRC c
+gest_actionlist_init(&t->lst);
+#+END_SRC
+
+An actionlist can be initialized with =gest_actionlist_init=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_actionlist_init(gest_actionlist *lst);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_actionlist_init(gest_actionlist *lst)
+{
+    lst->head = NULL;
+    lst->tail = NULL;
+    lst->sz = 0;
+}
+#+END_SRC
+
+Actions are appended to an action list associated with
+a target (usually the actively selected one). This
+can be done with the static function =append_action=.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void append_action(gest_d *g,
+                          gest_target *t,
+                          void (*fun)(gest_d*, void*, int),
+                          void *data);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void append_action(gest_d *g,
+                          gest_target *t,
+                          void (*fun)(gest_d*, void*, int),
+                          void *data)
+{
+    gest_action *a;
+    gest_actionlist *lst;
+
+    lst = &t->lst;
+    a = gest_alloc(g, sizeof(gest_action));
+
+    a->data = data;
+    a->fun = fun;
+    a->next = NULL;
+
+    if (lst->head == NULL) {
+        lst->head = a;
+    }
+
+    if (lst->tail != NULL) lst->tail->next = a;
+    lst->tail = a;
+}
+#+END_SRC
+
+A new action requires making a callback, and optionally
+some data associated with it. The callback takes in
+the instance of gest, the user data associated with
+the action, and an integer value representing the current
+sample position inside the current render block. This
+position can be used for sample-accurate timing.
