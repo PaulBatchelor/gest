@@ -4067,12 +4067,43 @@ a good way to add some elementary multi-dimensional
 control that is correlated with a gesture.
 
 The data for a scalar is contained in a struct called
-=gest_scalar=. The scalar holds two values, a =current=,
-and =next= value, as well as an integer marking block
+=gest_scalar=.
+
+Because it is mostly intended to be used externally from
+Gest, the struct is exposed publically in the header.
+
+#+NAME: typedefs
+#+BEGIN_SRC c
+typedef struct {
+    SKFLT cur;
+    SKFLT nxt;
+    int pos;
+} gest_scalar;
+#+END_SRC
+
+The scalar holds two values, a current value =cur=,
+and a next value =nxt=, as well as an integer marking block
 position =pos=. When non-negative, the position will mark
 at what point in an active audio buffer a value has changed.
 Anything before it is the current value, anything on or
 after it is the next value.
+
+This struct can be initialized with =gest_scalar_init=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_scalar_init(gest_scalar *s);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_scalar_init(gest_scalar *s)
+{
+    s->cur = 0;
+    s->nxt = 0;
+    s->pos = -1;
+}
+#+END_SRC
 
 The current/next value approach with a position flag allows
 for up to one change to happen inside of a audio block. In
@@ -4082,6 +4113,10 @@ apart. For most situations, this is an acceptable
 limitation. As a result, what is achieved is a very
 efficient means for sample accurate timing.
 
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+#+END_SRC
+
 Scalars are external to an instance of gest, and are
 connected to it via an action.
 
@@ -4089,6 +4124,46 @@ The function =action_scalar= creates a new action for
 a target that sets the input scalar to a particular value.
 The action will set the next value of the scalar, and set
 the position.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void action_scalar(gest_d *g,
+                          gest_target *t,
+                          gest_scalar *s,
+                          SKFLT val);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+struct action_scalar_d {
+   gest_scalar *s;
+   SKFLT val;
+};
+
+static void scalar_cb(gest_d *g, void *ud, int pos)
+{
+    struct action_scalar_d *ad;
+    ad = (struct action_scalar_d *)ud;
+
+    ad->s->nxt = ad->val;
+    ad->s->pos = pos;
+}
+
+static void action_scalar(gest_d *g,
+                          gest_target *t,
+                          gest_scalar *s,
+                          SKFLT val)
+{
+    struct action_scalar_d *ad;
+
+    ad = gest_alloc(g, sizeof(struct action_scalar_d));
+
+    ad->s = s;
+    ad->val = val;
+
+    append_action(g, t, scalar_cb, ad);
+}
+#+END_SRC
 
 In order for scalar logic to work properly, the instance of
 Gest must be computed before the scalar value is computed.

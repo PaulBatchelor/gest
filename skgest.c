@@ -203,11 +203,16 @@ int sk_node_gestweight(sk_core *core)
 static void cleanup_gest(pw_pointer *p)
 {
     gest_d *g;
-
     g = (gest_d *)pw_pointer_data(p);
-
     gest_cleanup(g);
     free(g);
+}
+
+static void cleanup_scalar(pw_pointer *p)
+{
+    gest_scalar *s;
+    s = (gest_scalar *)pw_pointer_data(p);
+    free(s);
 }
 
 gest_d *gest_pw_alloc(pw_patch *patch)
@@ -224,4 +229,64 @@ gest_d * sk_node_gestnew(sk_core *core)
     pw_patch *patch;
     patch = sk_core_patch(core);
     return gest_pw_alloc(patch);
+}
+
+gest_scalar* gest_scalar_pw_alloc(pw_patch *patch)
+{
+    gest_scalar *s;
+    s = malloc(sizeof(gest_scalar));
+    gest_scalar_init(s);
+    pw_patch_append_userdata(patch, cleanup_scalar, s);
+    return s;
+}
+
+gest_scalar * sk_node_scalarnew(sk_core *core)
+{
+    pw_patch *patch;
+    patch = sk_core_patch(core);
+    return gest_scalar_pw_alloc(patch);
+}
+
+static void scalar_compute(pw_node *node)
+{
+    int blksize;
+    int n;
+    gest_scalar *s;
+    pw_cable *out;
+
+    blksize = pw_node_blksize(node);
+
+    s = pw_node_get_data(node);
+
+    pw_node_get_cable(node, 0, &out);
+
+    for (n = 0; n < blksize; n++) {
+        SKFLT x;
+
+        x = s->cur;
+        if (s->pos >= 0 && n >= s->pos) x = s->nxt;
+        pw_cable_set(out, n, x);
+    }
+
+    /* reset */
+    s->cur = s->nxt;
+    s->pos = -1;
+}
+
+int pw_node_scalar(pw_node *node, gest_scalar *s)
+{
+    pw_patch *patch;
+    int rc;
+
+    rc = pw_node_get_patch(node, &patch);
+    if (rc != PW_OK) return rc;
+
+    rc = pw_node_cables_alloc(node, 1);
+
+    if (rc != PW_OK) return rc;
+
+    pw_node_set_compute(node, scalar_compute);
+    pw_node_set_data(node, s);
+
+    return PW_OK;
 }
