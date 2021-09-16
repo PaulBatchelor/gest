@@ -290,3 +290,25 @@ int pw_node_scalar(pw_node *node, gest_scalar *s)
 
     return PW_OK;
 }
+
+int sk_node_gestscalar(sk_core *core)
+{
+    pw_patch *patch;
+    pw_node *node;
+    int rc;
+    gest_scalar *s;
+
+    rc = sk_core_generic_pop(core, (void **)&s);
+    SK_ERROR_CHECK(rc);
+
+    patch = sk_core_patch(core);
+
+    rc = pw_patch_new_node(patch, &node);
+    SK_PW_ERROR_CHECK(rc);
+
+    rc = pw_node_scalar(node, s);
+    SK_PW_ERROR_CHECK(rc);
+
+    sk_param_out(core, node, 0);
+    return 0;
+}

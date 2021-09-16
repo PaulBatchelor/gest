@@ -1,0 +1,48 @@
+# using a scalar as a gate signal
+
+# scalar instance needs to be
+# created before gesture is populated
+gest_scalarnew
+regset zz 0
+
+gest_new
+dup
+gest_begin 3 3
+gest_target 0
+gest_step
+# turn gate on at begining of phrase
+gest_setscalar [regget 0] 1
+
+gest_target 3
+gest_step
+
+gest_target 7
+# turn off gate
+gest_setscalar [regget 0] 0
+gest_step
+gest_end
+# loop will turn gate back on
+gest_loopit
+gest_finish
+phasor [expr 135 / 60] 0
+gesticulate zz zz
+
+add zz 58
+
+mtof zz
+blsaw zz
+valp1 zz 1000
+mul zz 0.5
+
+# the scalar node. call this exactly once, and after the
+# main gesticulate command
+
+gestscalar [regget 0]
+
+# some smoothing to the gate signal to prevent clicks
+smoother zz 0.001
+mul zz zz
+
+wavout zz "scalar.wav"
+
+computes 10

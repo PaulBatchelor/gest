@@ -571,7 +571,7 @@ static void init_state(gest_state *s)
 }
 #+END_SRC
 * Core Commands
-Some core commands for programming.
+Some core commands for programming gestures.
 ** Begin
 Begin: begins a phrase. Takes in duration (in beats) as an
 argument.
@@ -791,6 +791,11 @@ void gest_loopit(gest_d *g)
     <<metaphrase_loopit>>
 }
 #+END_SRC
+* Meta Commands and Actions
+Commands related to meta-things. Also, placing
+things related to actions (such as scalars) here,
+as there is no other place to put them, and not
+enough of them to make a new category.
 ** Addmetatarget
 The function =gest_addmetatarget= will create a new
 metatarget with a size of =sz= metatargets.
@@ -1050,6 +1055,23 @@ int gest_randphrase(gest_d *g)
     mp = g->mpstack[g->mppos - 1];
 
     mp->parent->get = phrase_random;
+    return 0;
+}
+#+END_SRC
+** Setscalar
+Binds an action to the current that assings a value
+to an instant of a =gest_scalar=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_setscalar(gest_d *g, gest_scalar *s, SKFLT val);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gest_setscalar(gest_d *g, gest_scalar *s, SKFLT val)
+{
+    action_scalar(g, g->curtarget, s, val);
     return 0;
 }
 #+END_SRC
