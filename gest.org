@@ -2576,7 +2576,6 @@ struct gest_target {
     SKFLT value;
     gest_behavior behavior;
     gest_behavior *curbehavior;
-    SKFLT (*mix)(gest_d *, SKFLT, SKFLT, SKFLT);
     void *ud; /* user data attached to this target */
     gest_target *next;
     gest_target* (*get)(gest_d *, gest_target *);
@@ -2597,25 +2596,11 @@ void gest_target_init(gest_target *t)
     t->value = 0;
     t->ud = NULL;
     t->next = NULL;
-    t->mix = default_mix;
     t->get = NULL;
     t->meta = NULL;
     gest_behavior_init(&t->behavior);
     t->curbehavior = &t->behavior;
     <<gest_target_init>>
-}
-#+END_SRC
-
-#+NAME: static_funcdefs
-#+BEGIN_SRC c
-static SKFLT default_mix(gest_d *g, SKFLT x, SKFLT y, SKFLT a);
-#+END_SRC
-
-#+NAME: funcs
-#+BEGIN_SRC c
-static SKFLT default_mix(gest_d *g, SKFLT x, SKFLT y, SKFLT a)
-{
-    return (1 - a)*x + a*y;
 }
 #+END_SRC
 ** Binding Targets to Ramp Tree Nodes
@@ -2887,7 +2872,41 @@ static void action_inertia(gest_d *g, gest_target *t, SKFLT inertia)
     append_action(g, t, update_inertia, pinertia);
 }
 #+END_SRC
-** Set Mix Callback
+** Mix Callback
+The =mix= callback is the callback used to interpolate
+between the current value and the next value, given an
+alpha value generated from the ramp tree.
+
+#+NAME: gest_target
+#+BEGIN_SRC c
+SKFLT (*mix)(gest_d *, SKFLT, SKFLT, SKFLT);
+#+END_SRC
+
+By default, mixing is just a linear crossfade between
+two the two values. This is defined in the callback
+=default_mix=:
+
+#+NAME: gest_target_init
+#+BEGIN_SRC c
+t->mix = default_mix;
+#+END_SRC
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static SKFLT default_mix(gest_d *g, SKFLT x, SKFLT y, SKFLT a);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static SKFLT default_mix(gest_d *g, SKFLT x, SKFLT y, SKFLT a)
+{
+    return (1 - a)*x + a*y;
+}
+#+END_SRC
+
+The mix callback can be updated using the function
+=gest_target_mix=.
+
 #+NAME: funcdefs
 #+BEGIN_SRC c
 void gest_target_mix(gest_target *t,
