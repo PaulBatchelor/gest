@@ -13,6 +13,10 @@ gest.c: gest.org
 %.o: %.c
 	$(CC) -c $(CFLAGS) $< -o $@
 
+install:
+	mkdir -p /usr/local/bin
+	cp lilgest /usr/local/bin
+
 clean:
 	$(RM) $(OBJ) lilgest.o l_gest.o
 	$(RM) gest.c gest.h
