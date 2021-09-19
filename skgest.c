@@ -312,3 +312,75 @@ int sk_node_gestscalar(sk_core *core)
     sk_param_out(core, node, 0);
     return 0;
 }
+
+/* stick: ticks when a new scalar value has been set.
+ * discards the actual value. This is useful for rhythmic
+ * sequencing.
+ */
+
+static void stick_compute(pw_node *node)
+{
+    int blksize;
+    int n;
+    gest_scalar *s;
+    pw_cable *out;
+
+    blksize = pw_node_blksize(node);
+
+    s = pw_node_get_data(node);
+
+    pw_node_get_cable(node, 0, &out);
+
+    for (n = 0; n < blksize; n++) {
+        SKFLT x;
+
+        x = 0;
+        if (s->pos >= 0 && n >= s->pos) x = 1;
+        pw_cable_set(out, n, x);
+    }
+
+    /* reset */
+    s->cur = s->nxt;
+    s->pos = -1;
+}
+
+int pw_node_gestick(pw_node *node, gest_scalar *s)
+{
+    pw_patch *patch;
+    int rc;
+
+    rc = pw_node_get_patch(node, &patch);
+    if (rc != PW_OK) return rc;
+
+    rc = pw_node_cables_alloc(node, 1);
+
+    if (rc != PW_OK) return rc;
+
+    pw_node_set_compute(node, stick_compute);
+    pw_node_set_data(node, s);
+
+    return PW_OK;
+}
+
+int sk_node_gestick(sk_core *core)
+{
+    pw_patch *patch;
+    pw_node *node;
+    int rc;
+    gest_scalar *s;
+
+    rc = sk_core_generic_pop(core, (void **)&s);
+    SK_ERROR_CHECK(rc);
+
+    patch = sk_core_patch(core);
+
+    rc = pw_patch_new_node(patch, &node);
+    SK_PW_ERROR_CHECK(rc);
+
+    rc = pw_node_gestick(node, s);
+    SK_PW_ERROR_CHECK(rc);
+
+    sk_param_out(core, node, 0);
+    return 0;
+}
+
