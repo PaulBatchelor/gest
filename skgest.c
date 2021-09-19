@@ -282,6 +282,7 @@ int pw_node_gescalar(pw_node *node, gest_scalar *s)
     if (rc != PW_OK) return rc;
 
     rc = pw_node_cables_alloc(node, 1);
+    pw_node_set_block(node, 0);
 
     if (rc != PW_OK) return rc;
 
@@ -335,7 +336,7 @@ static void stick_compute(pw_node *node)
         SKFLT x;
 
         x = 0;
-        if (s->pos >= 0 && n >= s->pos) x = 1;
+        if (s->pos >= 0 && n == s->pos) x = 1;
         pw_cable_set(out, n, x);
     }
 
@@ -353,6 +354,7 @@ int pw_node_gestick(pw_node *node, gest_scalar *s)
     if (rc != PW_OK) return rc;
 
     rc = pw_node_cables_alloc(node, 1);
+    pw_node_set_block(node, 0);
 
     if (rc != PW_OK) return rc;
 
