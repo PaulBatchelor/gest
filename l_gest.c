@@ -11,7 +11,7 @@ int sk_node_gesticulate(sk_core *core);
 int sk_node_gestweight(sk_core *core);
 gest_d * sk_node_gestnew(sk_core *core);
 gest_scalar * sk_node_scalarnew(sk_core *core);
-int sk_node_gestscalar(sk_core *core);
+int sk_node_gescalar(sk_core *core);
 int sk_node_gestick(sk_core *core);
 
 static lil_value_t gesticulate(lil_t lil,
@@ -638,7 +638,7 @@ static lil_value_t l_gest_setscalar(lil_t lil,
     return NULL;
 }
 
-static lil_value_t l_gestscalar(lil_t lil,
+static lil_value_t l_gescalar(lil_t lil,
                                 size_t argc,
                                 lil_value_t *argv)
 {
@@ -646,13 +646,13 @@ static lil_value_t l_gestscalar(lil_t lil,
     int rc;
     core = lil_get_data(lil);
 
-    SKLIL_ARITY_CHECK(lil, "gestscalar", argc, 1);
+    SKLIL_ARITY_CHECK(lil, "gescalar", argc, 1);
 
     /* argument is implictely on the sndkit stack */
     /* the arity check in LIL is mainly symbolic */
 
-    rc = sk_node_gestscalar(core);
-    SKLIL_ERROR_CHECK(lil, rc, "gestscalar didn't work out.");
+    rc = sk_node_gescalar(core);
+    SKLIL_ERROR_CHECK(lil, rc, "gescalar didn't work out.");
     return NULL;
 }
 
@@ -705,6 +705,6 @@ void sklil_load_gest(lil_t lil)
     lil_register(lil, "gest_randphrase", l_gest_randphrase);
     lil_register(lil, "gest_scalarnew", l_gest_scalarnew);
     lil_register(lil, "gest_setscalar", l_gest_setscalar);
-    lil_register(lil, "gestscalar", l_gestscalar);
+    lil_register(lil, "gescalar", l_gescalar);
     lil_register(lil, "gestick", l_gestick);
 }

@@ -37,7 +37,7 @@ mul zz 0.5
 # the scalar node. call this exactly once, and after the
 # main gesticulate command
 
-gestscalar [regget 0]
+gescalar [regget 0]
 
 # some smoothing to the gate signal to prevent clicks
 smoother zz 0.001

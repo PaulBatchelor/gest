@@ -273,7 +273,7 @@ static void scalar_compute(pw_node *node)
     s->pos = -1;
 }
 
-int pw_node_scalar(pw_node *node, gest_scalar *s)
+int pw_node_gescalar(pw_node *node, gest_scalar *s)
 {
     pw_patch *patch;
     int rc;
@@ -291,7 +291,7 @@ int pw_node_scalar(pw_node *node, gest_scalar *s)
     return PW_OK;
 }
 
-int sk_node_gestscalar(sk_core *core)
+int sk_node_gescalar(sk_core *core)
 {
     pw_patch *patch;
     pw_node *node;
@@ -306,7 +306,7 @@ int sk_node_gestscalar(sk_core *core)
     rc = pw_patch_new_node(patch, &node);
     SK_PW_ERROR_CHECK(rc);
 
-    rc = pw_node_scalar(node, s);
+    rc = pw_node_gescalar(node, s);
     SK_PW_ERROR_CHECK(rc);
 
     sk_param_out(core, node, 0);
