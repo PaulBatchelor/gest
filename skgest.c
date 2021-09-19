@@ -34,7 +34,7 @@ static void compute(pw_node *node)
         PWFLT out, conductor;
         conductor = pw_cable_get(gest->conductor, n);
 
-        out = gest_tick(gest->gest, conductor);
+        out = gest_tick(gest->gest, conductor, n);
         pw_cable_set(gest->out, n, out);
     }
 }

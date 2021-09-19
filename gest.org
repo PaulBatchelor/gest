@@ -217,16 +217,16 @@ Update the current target with =set_curtarget=.
 
 #+NAME: static_funcdefs
 #+BEGIN_SRC c
-static void set_curtarget(gest_d *g, gest_target *target);
+static void set_curtarget(gest_d *g, gest_target *target, int pos);
 #+END_SRC
 
 #+NAME: funcs
 #+BEGIN_SRC c
-static void set_curtarget(gest_d *g, gest_target *target)
+static void set_curtarget(gest_d *g, gest_target *target, int pos)
 {
     g->curtarget = target;
     g->curval = target->value;
-    do_actions(g, target);
+    do_actions(g, target, pos);
 }
 #+END_SRC
 
@@ -760,7 +760,7 @@ void gest_finish(gest_d *g)
     set_curnode(g, top);
     target = node_target(g, top);
     target->curbehavior = target_behavior(g, target);
-    set_curtarget(g, target);
+    set_curtarget(g, target, 0);
 
     init_state(&g->nxtstate);
     find_next_node(g, g->curnode, &g->nxtstate);
@@ -1952,15 +1952,27 @@ to the external conductor signal. These values
 can then be used to interpolate between targets.
 
 The ramp tree value is computed with =ramptree_step=.
+It requires an instance of gest =g=, the estimated
+increment amount for the sample =inc=, a =reset=
+flag to indicate if the conductor signal reset,
+and the audio block buffer position =blkpos=, used to
+schedule events that want sample-accurate timing
+precision.
 
 #+NAME: static_funcdefs
 #+BEGIN_SRC c
-static SKFLT ramptree_step(gest_d *g, SKFLT inc, int reset);
+static SKFLT ramptree_step(gest_d *g,
+                           SKFLT inc,
+                           int reset,
+                           int blkpos);
 #+END_SRC
 
 #+NAME: funcs
 #+BEGIN_SRC c
-static SKFLT ramptree_step(gest_d *g, SKFLT inc, int reset)
+static SKFLT ramptree_step(gest_d *g,
+                           SKFLT inc,
+                           int reset,
+                           int blkpos)
 {
     SKFLT out;
     SKFLT phs;
@@ -2088,6 +2100,7 @@ and just needs to be swapped in.
 #+BEGIN_SRC c
 if (g->targetondeck) {
     gest_state *s;
+
     s = &g->nxtstate;
 
     g->targetondeck = 0;
@@ -2100,7 +2113,7 @@ if (g->targetondeck) {
     g->num = s->num;
     g->den = s->den;
     s->target->curbehavior = s->behavior;
-    set_curtarget(g, s->target);
+    set_curtarget(g, s->target, blkpos);
 
     set_curnode(g, s->node);
     g->phrase_selected = s->phrase;
@@ -3040,16 +3053,26 @@ static gest_behavior * target_behavior(gest_d *g, gest_target *t)
 #+END_SRC
 * Computation
 Gest is synthesized with =gest_tick=. It expects
-a conductor phasor signal =conductor=.
+a conductor phasor signal =conductor=, and the
+current position in the current audio block =blkpos=.
+If =blkpos= is not applicable, this can be set to be 0.
+
+Gest assumes that it is being used inside of an 
+environment that internally uses fixed-size audio buffers
+to process audio (most computer music environments do
+this: PureData, SuperCollider, Csound, etc).
+The block position variable
+is used to produce events that have sample-accurate
+timing.
 
 #+NAME: funcdefs
 #+BEGIN_SRC c
-SKFLT gest_tick(gest_d *g, SKFLT conductor);
+SKFLT gest_tick(gest_d *g, SKFLT conductor, int blkpos);
 #+END_SRC
 
 #+NAME: funcs
 #+BEGIN_SRC c
-SKFLT gest_tick(gest_d *g, SKFLT conductor)
+SKFLT gest_tick(gest_d *g, SKFLT conductor, int blkpos)
 {
     SKFLT out;
     SKFLT inc;
@@ -3123,7 +3146,7 @@ the tree and returns the tramptree value.
 
 #+NAME: compute_ramptree
 #+BEGIN_SRC c
-out = ramptree_step(g, inc, reset);
+out = ramptree_step(g, inc, reset, blkpos);
 #+END_SRC
 
 With the computed ramp tree value in hand, the current
@@ -4070,14 +4093,13 @@ calls the actions inside the action list. This is called
 
 #+NAME: static_funcdefs
 #+BEGIN_SRC c
-static void do_actions(gest_d *g, gest_target *t);
+static void do_actions(gest_d *g, gest_target *t, int pos);
 #+END_SRC
 
 #+NAME: funcs
 #+BEGIN_SRC c
-static void do_actions(gest_d *g, gest_target *t)
+static void do_actions(gest_d *g, gest_target *t, int pos)
 {
-    int pos;
     gest_actionlist *lst;
     gest_action *a;
     int i;
@@ -4085,8 +4107,6 @@ static void do_actions(gest_d *g, gest_target *t)
     lst = &t->lst;
 
     a = lst->head;
-
-    pos = 0; /* TODO: work in later */
 
     for (i = 0; i < lst->sz; i++) {
         a->fun(g, a->data, pos);
