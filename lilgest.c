@@ -5,10 +5,11 @@
 #include <sndkit/sklil.h>
 
 void sklil_load_gest(lil_t lil);
+void sklil_loader_withextra(lil_t lil);
 
 static void load(lil_t lil)
 {
-    sklil_loader(lil);
+    sklil_loader_withextra(lil);
     sklil_load_gest(lil);
 }
 
