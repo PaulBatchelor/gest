@@ -1,0 +1,44 @@
+gest_new
+dup
+gest_begin 3 6
+gest_repeat 2
+gest_target 0
+gest_smallgliss
+gest_target 3
+gest_smallgliss
+gest_target 7
+gest_smallgliss
+gest_target 3
+gest_smallgliss
+gest_monoramp 2
+gest_target 8
+gest_smallgliss
+gest_end
+
+gest_begin 2 4
+gest_target -1
+gest_smallgliss
+gest_target 0
+gest_smallgliss
+gest_target 2
+gest_smallgliss
+gest_target 3
+gest_smallgliss
+gest_end
+
+gest_loopit
+gest_finish
+
+phasor 4 0
+gesticulate zz zz
+
+add zz 60
+mtof zz
+
+blsaw zz
+butlp zz 1000
+mul zz 0.5
+
+wavout zz "repeat.wav"
+
+computes 10
