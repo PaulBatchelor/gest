@@ -3964,9 +3964,7 @@ static gest_phrase* phrase_random(gest_d *g, gest_phrase *ph);
 static gest_phrase* phrase_random(gest_d *g, gest_phrase *ph)
 {
     gest_metaphrase *mp;
-
     mp = ph->meta;
-
     return mp->phrases[gest_randi(g, mp->size)];
 }
 #+END_SRC

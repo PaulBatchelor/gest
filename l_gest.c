@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h> /* for rseed */
 #include "sndkit/lil.h"
 #include "sndkit/patchwerk.h"
 #include "sndkit/core.h"
@@ -701,6 +702,24 @@ static lil_value_t l_gest_repeat(lil_t lil,
     return NULL;
 }
 
+static lil_value_t l_gest_rseed(lil_t lil,
+                                size_t argc,
+                                lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+
+    SKLIL_ARITY_CHECK(lil, "gest_rseed", argc, 1);
+    core = lil_get_data(lil);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+    /* TODO: seed from sndkit RNG generator */
+    gest_seed(g, time(NULL));
+    return NULL;
+}
+
 void sklil_load_gest(lil_t lil)
 {
     lil_register(lil, "gest_new", gest_new);
@@ -735,4 +754,5 @@ void sklil_load_gest(lil_t lil)
     lil_register(lil, "gescalar", l_gescalar);
     lil_register(lil, "gestick", l_gestick);
     lil_register(lil, "gest_repeat", l_gest_repeat);
+    lil_register(lil, "gest_rseed", l_gest_rseed);
 }

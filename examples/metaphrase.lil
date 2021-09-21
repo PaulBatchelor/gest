@@ -39,6 +39,7 @@ func sequence {} {
 gest_new
 regset zz 1
 
+gest_rseed [regget 1]
 
 regget 1
 gestweight zz
