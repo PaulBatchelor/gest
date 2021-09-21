@@ -1075,6 +1075,66 @@ int gest_setscalar(gest_d *g, gest_scalar *s, SKFLT val)
     return 0;
 }
 #+END_SRC
+** Repeat
+The command =gest_repeat= can be used to repeat a phrase
+a fixed number of times before going to the next phrase.
+Call this phrase after an initial phrase has been created
+with =gest_begin=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_repeat(gest_d *g, int ntimes);
+#+END_SRC
+
+The repeat function works by replacing the selected phrase's
+=next= callback with a custom one, called =repeater=. There
+is also special data which gets bound to the phrase's user
+data slot: repeat position, and the total number of
+repeats, which the =next= callback updates as a counter.
+When the counter reaches the end, it resets and returns the
+next phrase. Otherwise, it just returns itself.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+struct repeat_data {
+    int pos;
+    int reps;
+};
+
+gest_phrase *repeater(gest_d *g, gest_phrase *ph)
+{
+    struct repeat_data *rd;
+
+    if (ph->ud == NULL) return ph;
+
+    rd = (struct repeat_data *)ph->ud;
+    rd->pos++;
+
+    if (rd->pos >= rd->reps) {
+        rd->pos = 0;
+        return ph->next;
+    }
+
+    return ph;
+}
+
+int gest_repeat(gest_d *g, int ntimes)
+{
+    gest_phrase *ph;
+    struct repeat_data *rd;
+
+    ph = g->phrase_selected;
+
+    rd = gest_alloc(g, sizeof(struct repeat_data));
+    rd->pos = 0;
+    rd->reps = ntimes;
+
+    ph->nextf = repeater;
+    ph->ud = rd;
+
+    return 0;
+}
+#+END_SRC
 * Behavior Commands
 Behaviors are the means by which one target gets to thep
 next target.
@@ -1391,8 +1451,10 @@ struct gest_phrase {
     SKFLT mod;
     int beats;
     gest_phrase *next;
+    gest_phrase* (*nextf)(gest_d *, gest_phrase *);
     gest_metaphrase *meta;
     gest_phrase* (*get)(gest_d *, gest_phrase *);
+    void *ud;
 };
 #+END_SRC
 
@@ -1425,6 +1487,7 @@ static void phrase_init(gest_d *g,
     phrase->top = mkpolyramp(g, NULL, div);
     phrase->meta = NULL;
     phrase->get = NULL;
+    phrase->nextf = NULL;
 }
 #+END_SRC
 * Ramp Tree
@@ -2250,7 +2313,7 @@ static void find_next_node(gest_d *g,
             /* if so, go to next phrase */
             if (top->next == NULL) {
                 /* next node is in next phrase */
-                phrase = phrase->next;
+                phrase = next_phrase(g, phrase);
                 phrase = get_phrase(g, phrase);
                 if (phrase != NULL) next = phrase->top;
                 else next = NULL;
@@ -2313,6 +2376,11 @@ static void find_next_node(gest_d *g,
 }
 #+END_SRC
 
+In order for the =metaphrase= to exist, phrases must be able
+to be indirectly retrieved using an internally =get=
+callback, which can be recursively called. This is is done
+with the local function =get_phrase=.
+
 #+NAME: static_funcdefs
 #+BEGIN_SRC c
 static gest_phrase* get_phrase(gest_d *g, gest_phrase *ph);
@@ -2325,6 +2393,30 @@ static gest_phrase* get_phrase(gest_d *g, gest_phrase *ph)
     if (ph == NULL) return NULL;
     while (ph->get != NULL) ph = ph->get(g, ph);
     return ph;
+}
+#+END_SRC
+
+The =next_phrase= function is used to the next phrase after
+the current phrase. This will either return the =next=
+pointer directly, or a callback returning something else,
+for more variable behavior. Abstracting the next phrase
+getter like this allows for things like repeating phrases.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static gest_phrase* next_phrase(gest_d *g, gest_phrase *ph);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static gest_phrase* next_phrase(gest_d *g, gest_phrase *ph)
+{
+    gest_phrase *next;
+    next = ph->next;
+
+    if (ph->nextf != NULL) next = ph->nextf(g, ph);
+
+    return next;
 }
 #+END_SRC
 ** When a phrase is over, wraparound
@@ -3683,7 +3775,7 @@ Every time the phrase gets selected, the metaphrase
 gets an opportunity to select one of the phrases.
 *** Struct Declaration
 Similar to before, a =gest_metaphrase= has a position,
-size, and array of phrases. 
+size, and array of phrases.
 
 #+NAME: typedefs
 #+BEGIN_SRC c

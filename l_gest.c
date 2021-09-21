@@ -674,6 +674,33 @@ static lil_value_t l_gestick(lil_t lil,
     return NULL;
 }
 
+static lil_value_t l_gest_repeat(lil_t lil,
+                                 size_t argc,
+                                 lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+    int nreps;
+
+    core = lil_get_data(lil);
+    SKLIL_ARITY_CHECK(lil, "gest_repeat", argc, 1);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+    nreps = lil_to_integer(argv[0]);
+
+    rc = gest_repeat(g, nreps);
+
+    if (rc) {
+        lil_set_error(lil, "Could not add metaphrase.");
+        return NULL;
+    }
+
+    sk_core_generic_push(core, g);
+    return NULL;
+}
+
 void sklil_load_gest(lil_t lil)
 {
     lil_register(lil, "gest_new", gest_new);
@@ -707,4 +734,5 @@ void sklil_load_gest(lil_t lil)
     lil_register(lil, "gest_setscalar", l_gest_setscalar);
     lil_register(lil, "gescalar", l_gescalar);
     lil_register(lil, "gestick", l_gestick);
+    lil_register(lil, "gest_repeat", l_gest_repeat);
 }
