@@ -949,6 +949,11 @@ int gest_addmetaphrase(gest_d *g, int sz)
     gest_metaphrase *mp;
     gest_phrase *ph;
 
+    if (g->phrase_top == NULL) {
+        fprintf(stderr, "Sorry, metaphrases can't yet be first\n");
+        return 2;
+    }
+
     if (g->mppos >= GEST_MPSTACK_SIZE) return 1;
 
 
