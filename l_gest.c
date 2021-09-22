@@ -720,6 +720,48 @@ static lil_value_t l_gest_rseed(lil_t lil,
     return NULL;
 }
 
+static lil_value_t l_gest_mark(lil_t lil,
+                               size_t argc,
+                               lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+
+    core = lil_get_data(lil);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+    rc = gest_mark(g);
+
+    SKLIL_ERROR_CHECK(lil, rc, "mark failed. Is there a phrase?");
+    sk_core_generic_push(core, g);
+    return NULL;
+}
+
+static lil_value_t l_gest_return(lil_t lil,
+                                 size_t argc,
+                                 lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+    int ntimes;
+
+    SKLIL_ARITY_CHECK(lil, "gest_return", argc, 1);
+    core = lil_get_data(lil);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+
+    ntimes = lil_to_integer(argv[0]);
+    rc = gest_return(g, ntimes);
+
+    SKLIL_ERROR_CHECK(lil, rc, "gest return failed.");
+    sk_core_generic_push(core, g);
+    return NULL;
+}
+
 void sklil_load_gest(lil_t lil)
 {
     lil_register(lil, "gest_new", gest_new);
@@ -755,4 +797,6 @@ void sklil_load_gest(lil_t lil)
     lil_register(lil, "gestick", l_gestick);
     lil_register(lil, "gest_repeat", l_gest_repeat);
     lil_register(lil, "gest_rseed", l_gest_rseed);
+    lil_register(lil, "gest_mark", l_gest_mark);
+    lil_register(lil, "gest_return", l_gest_return);
 }

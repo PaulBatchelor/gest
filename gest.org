@@ -570,6 +570,19 @@ static void init_state(gest_state *s)
     s->please_wait = 0;
 }
 #+END_SRC
+** Saved Phrase
+Used by =gest_mark= and =gest_return=. This might
+eventually turn into a stack.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+gest_phrase *saved;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+g->saved = NULL;
+#+END_SRC
 * Core Commands
 Some core commands for programming gestures.
 ** Begin
@@ -1140,6 +1153,86 @@ int gest_repeat(gest_d *g, int ntimes)
     return 0;
 }
 #+END_SRC
+** Mark
+The command =gest_mark= stores the current phrase to be
+used for later. It is intended to be used with
+=gest_return=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_mark(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gest_mark(gest_d *g)
+{
+    g->saved = g->phrase_selected;
+    return 0;
+}
+#+END_SRC
+** Return
+The command =gest_return= will return to a previously
+marked phrase a fixed number of times before moving
+on.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_return(gest_d *g, int ntimes);
+#+END_SRC
+
+It is utilized with a special =get= callback, which will
+either return the saved phrase or the next phrase. The
+phrase itself is otherwise completely empty and has no
+duration.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+struct return_d {
+    gest_phrase *ph;
+    int pos;
+    int ntimes;
+};
+
+static gest_phrase* goback(gest_d *g, gest_phrase *ph)
+{
+    struct return_d *rd;
+
+    rd = (struct return_d *)ph->ud;
+
+    rd->pos++;
+
+    if (rd->pos >= rd->ntimes) {
+        rd->pos = 0;
+        return next_phrase(g, ph);
+    }
+
+    return rd->ph;
+}
+
+int gest_return(gest_d *g, int ntimes)
+{
+    gest_phrase *ph;
+    struct return_d *rd;
+
+    if (g->saved == NULL) return 1;
+
+    gest_begin(g, 0, 0);
+    gest_end(g);
+
+    rd = gest_alloc(g, sizeof(struct return_d));
+    ph = g->phrase_selected;
+
+    rd->ph = g->saved;
+    rd->pos = 0;
+    rd->ntimes = ntimes;
+
+    ph->ud = rd;
+    ph->get = goback;
+
+    return 0;
+}
+#+END_SRC
 * Behavior Commands
 Behaviors are the means by which one target gets to thep
 next target.
@@ -1486,7 +1579,8 @@ static void phrase_init(gest_d *g,
                         int beats,
                         int div)
 {
-    phrase->mod = 1.0 / beats;
+    if (beats > 0) phrase->mod = 1.0 / beats;
+    else phrase->mod = 0;
     phrase->beats = beats;
     phrase->next = NULL;
     phrase->top = mkpolyramp(g, NULL, div);
