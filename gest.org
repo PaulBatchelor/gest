@@ -4363,10 +4363,6 @@ apart. For most situations, this is an acceptable
 limitation. As a result, what is achieved is a very
 efficient means for sample accurate timing.
 
-#+NAME: static_funcdefs
-#+BEGIN_SRC c
-#+END_SRC
-
 Scalars are external to an instance of gest, and are
 connected to it via an action.
 
