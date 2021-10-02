@@ -1233,6 +1233,57 @@ int gest_return(gest_d *g, int ntimes)
     return 0;
 }
 #+END_SRC
+** Skewquad
+Applies quadratic temporal skewing to the currently selected
+phrase. The variable =dir= controls the direction. When
+=dir= is 0, it does an easing inwards, otherwise
+it goes outwards.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_skewquad(gest_d *g, int dir);
+#+END_SRC
+
+Quadratic skewing works by computing the difference
+between the current quadratic scaled position =x0=,
+and the next one =x1=.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static SKFLT skewquad_in(SKFLT t, SKFLT inc)
+{
+    SKFLT x0, x1;
+
+    x0 = t*t;
+    t += inc;
+    x1 = t*t;
+
+    return x1 - x0;
+}
+
+static SKFLT skewquad_out(SKFLT t, SKFLT inc)
+{
+    SKFLT x0, x1;
+
+    x0 = 1 - (1 - t) * (1 - t);
+    t += inc;
+    x1 = 1 - (1 - t) * (1 - t);
+
+    return x1 - x0;
+}
+
+int gest_skewquad(gest_d *g, int dir)
+{
+    if (g->phrase_selected == NULL) return 1;
+
+    if (dir == 0) {
+        g->phrase_selected->skew = skewquad_in;
+    } else {
+        g->phrase_selected->skew = skewquad_out;
+    }
+    return 0;
+}
+#+END_SRC
 * Behavior Commands
 Behaviors are the means by which one target gets to thep
 next target.
@@ -1553,6 +1604,7 @@ struct gest_phrase {
     gest_metaphrase *meta;
     gest_phrase* (*get)(gest_d *, gest_phrase *);
     void *ud;
+    <<phrase_skew>>
 };
 #+END_SRC
 
@@ -1587,8 +1639,30 @@ static void phrase_init(gest_d *g,
     phrase->meta = NULL;
     phrase->get = NULL;
     phrase->nextf = NULL;
+    <<phrase_skew_init>>
 }
 #+END_SRC
+** Temporal Skewing
+Time (represented here as a linear construct) within a
+phrase can be =skewed= using a function.
+
+This function is a callback called =skew=, and it is set
+to be NULL by default.
+
+#+NAME: phrase_skew
+#+BEGIN_SRC c
+SKFLT (*skew)(SKFLT, SKFLT);
+#+END_SRC
+
+#+NAME: phrase_skew_init
+#+BEGIN_SRC c
+phrase->skew = NULL;
+#+END_SRC
+
+=skew= takes in two arguments, the current linear point in
+time =t=, and the increment value =inc=. Skew can return
+a new local increment value based on the linear point in
+time.
 * Ramp Tree
 ** The Ramp Tree Struct
 *** Declaration
@@ -2311,7 +2385,15 @@ update the existing phase.
 #+BEGIN_SRC c
 {
 SKFLT i;
-i = inc * ((SKFLT)g->num / g->den);
+SKFLT myinc;
+
+if (g->phrase_selected->skew == NULL) {
+    myinc = inc;
+} else {
+    myinc = g->phrase_selected->skew(g->t, inc);
+}
+
+i = myinc * ((SKFLT)g->num / g->den);
 phs += i;
 }
 #+END_SRC
