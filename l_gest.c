@@ -785,6 +785,29 @@ static lil_value_t l_gest_skewquad(lil_t lil,
     return NULL;
 }
 
+static lil_value_t l_gest_skewexp(lil_t lil,
+                                    size_t argc,
+                                    lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+    int dir;
+
+    SKLIL_ARITY_CHECK(lil, "gest_skewexp", argc, 1);
+    core = lil_get_data(lil);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+
+    dir = lil_to_integer(argv[0]);
+    rc = gest_skewexp(g, dir);
+
+    SKLIL_ERROR_CHECK(lil, rc, "gest return failed.");
+    sk_core_generic_push(core, g);
+    return NULL;
+}
+
 void sklil_load_gest(lil_t lil)
 {
     lil_register(lil, "gest_new", gest_new);
@@ -823,4 +846,5 @@ void sklil_load_gest(lil_t lil)
     lil_register(lil, "gest_mark", l_gest_mark);
     lil_register(lil, "gest_return", l_gest_return);
     lil_register(lil, "gest_skewquad", l_gest_skewquad);
+    lil_register(lil, "gest_skewexp", l_gest_skewexp);
 }

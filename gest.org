@@ -1284,6 +1284,60 @@ int gest_skewquad(gest_d *g, int dir)
     return 0;
 }
 #+END_SRC
+** Skewexp
+Exponential skew.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_skewexp(gest_d *g, int dir);
+#+END_SRC
+
+Quadratic skewing works by computing the difference
+between the current quadratic scaled position =x0=,
+and the next one =x1=.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static SKFLT skewexp_in(SKFLT t, SKFLT inc)
+{
+    SKFLT x0, x1;
+    SKFLT s;
+
+    s = 1.0 / (1 - exp(1));
+
+    x0 = (1 - exp(t)) * s;
+    t += inc;
+    x1 = (1 - exp(t)) * s;
+
+    return x1 - x0;
+}
+
+static SKFLT skewexp_out(SKFLT t, SKFLT inc)
+{
+    SKFLT x0, x1;
+    SKFLT s;
+
+    s = 1.0 / (1 - exp(-1));
+
+    x0 = (1 - exp(-t)) * s;
+    t += inc;
+    x1 = (1 - exp(-t)) * s;
+
+    return x1 - x0;
+}
+
+int gest_skewexp(gest_d *g, int dir)
+{
+    if (g->phrase_selected == NULL) return 1;
+
+    if (dir == 0) {
+        g->phrase_selected->skew = skewexp_in;
+    } else {
+        g->phrase_selected->skew = skewexp_out;
+    }
+    return 0;
+}
+#+END_SRC
 * Behavior Commands
 Behaviors are the means by which one target gets to thep
 next target.
