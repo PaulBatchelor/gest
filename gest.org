@@ -1285,16 +1285,15 @@ int gest_skewquad(gest_d *g, int dir)
 }
 #+END_SRC
 ** Skewexp
-Exponential skew.
+Exponential skew. Similar to =skewquad=, only with
+an exponential curve. The two are very similar in behavior,
+except that this doesn't get as dramatically slower at the
+end, and is more suitable for exploring Risset rhythms.
 
 #+NAME: funcdefs
 #+BEGIN_SRC c
 int gest_skewexp(gest_d *g, int dir);
 #+END_SRC
-
-Quadratic skewing works by computing the difference
-between the current quadratic scaled position =x0=,
-and the next one =x1=.
 
 #+NAME: funcs
 #+BEGIN_SRC c
@@ -1335,6 +1334,47 @@ int gest_skewexp(gest_d *g, int dir)
     } else {
         g->phrase_selected->skew = skewexp_out;
     }
+    return 0;
+}
+#+END_SRC
+** Skewshuf
+Skews timing of a phrase so that it has "shuffle", or swung
+16th notes. This will assume the phrase is 4 beats long.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_skewshuf(gest_d *g);
+#+END_SRC
+
+The algorithm for this works by taking the current signal
+and dividing it into 16 steps 0 through 15. Even steps
+will double the increment value. Odd steps will halve it.
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static SKFLT skewshuf(SKFLT t, SKFLT inc)
+{
+    int pos;
+
+    if (t >= 1.0) return t;
+
+    pos = floor(t * 16);
+    pos %= 16;
+
+    if ((pos % 2) == 0) {
+       inc *= (2.0 / 3.0);
+    } else {
+       inc *= (4.0 / 3.0);
+    }
+
+    return inc;
+}
+
+int gest_skewshuf(gest_d *g)
+{
+    if (g->phrase_selected == NULL) return 1;
+
+    g->phrase_selected->skew = skewshuf;
     return 0;
 }
 #+END_SRC

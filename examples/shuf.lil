@@ -1,0 +1,70 @@
+gest_new
+dup
+gest_begin 4 16
+gest_skewshuf
+gest_target 0
+gest_smallgliss
+gest_target 2
+gest_smallgliss
+gest_target 4
+gest_smallgliss
+gest_target 5
+gest_smallgliss
+
+gest_target 7
+gest_smallgliss
+gest_target 5
+gest_smallgliss
+gest_target 4
+gest_smallgliss
+gest_target 2
+gest_smallgliss
+
+gest_target 0
+gest_smallgliss
+gest_target 2
+gest_smallgliss
+gest_target 4
+gest_smallgliss
+gest_target 5
+gest_smallgliss
+
+gest_metanode 4 2
+    gest_polyramp 4
+        gest_target 7
+        gest_smallgliss
+        gest_target 5
+        gest_smallgliss
+        gest_target 4
+        gest_smallgliss
+        gest_target 2
+        gest_smallgliss
+
+    gest_polyramp 6
+        gest_target 12
+        gest_smallgliss
+        gest_target 7
+        gest_smallgliss
+        gest_target 4
+        gest_smallgliss
+        gest_target 7
+        gest_smallgliss
+        gest_target 4
+        gest_smallgliss
+        gest_target 2
+        gest_smallgliss
+
+
+gest_end
+gest_loopit
+gest_finish
+phasor 1.6 0
+gesticulate zz zz
+add zz 60
+mtof zz
+blsaw zz
+mul zz 0.7
+butlp zz 800
+wavout zz "shuf.wav"
+
+computes 10
