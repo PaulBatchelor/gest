@@ -2187,10 +2187,25 @@ static void revert_modifier(gest_d *g, gest_node *node);
 static void apply_modifier(gest_d *g, gest_node *node);
 #+END_SRC
 
+It's a bit of a hack, but the tree traversal setup will
+go through metanodes and try to revert them. There
+is no situation where a metanode will need to be reverted,
+so it can be safely skipped.
+
+A node is considered to be a metanode if the meta pointer
+is not emtpy.
+
+The reason why this is a hack is because we are doing it
+here and not in the tree traversal used to find the
+next node. However, doing it there would require more
+changes.
+
 #+NAME: funcs
 #+BEGIN_SRC c
 static void revert_modifier(gest_d *g, gest_node *node)
 {
+    if (node->meta != NULL) return;
+
     if (node->type == NODE_POLYRAMP) {
         g->num /= node->modifier;
     } else if (node->type == NODE_MONORAMP) {
