@@ -827,6 +827,50 @@ static lil_value_t l_gest_skewshuf(lil_t lil,
     return NULL;
 }
 
+static lil_value_t l_gest_shrink(lil_t lil,
+                                 size_t argc,
+                                 lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+    SKFLT amt;
+
+    SKLIL_ARITY_CHECK(lil, "gest_shrink", argc, 1);
+    core = lil_get_data(lil);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+    amt = lil_to_double(argv[0]);
+    rc = gest_shrink(g, amt);
+
+    SKLIL_ERROR_CHECK(lil, rc, "gest shrink failed.");
+    sk_core_generic_push(core, g);
+    return NULL;
+}
+
+static lil_value_t l_gest_grow(lil_t lil,
+                                 size_t argc,
+                                 lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+    SKFLT amt;
+
+    SKLIL_ARITY_CHECK(lil, "gest_grow", argc, 1);
+    core = lil_get_data(lil);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+    amt = lil_to_double(argv[0]);
+    rc = gest_grow(g, amt);
+
+    SKLIL_ERROR_CHECK(lil, rc, "gest grow failed.");
+    sk_core_generic_push(core, g);
+    return NULL;
+}
+
 void sklil_load_gest(lil_t lil)
 {
     lil_register(lil, "gest_new", gest_new);
@@ -867,4 +911,6 @@ void sklil_load_gest(lil_t lil)
     lil_register(lil, "gest_skewquad", l_gest_skewquad);
     lil_register(lil, "gest_skewexp", l_gest_skewexp);
     lil_register(lil, "gest_skewshuf", l_gest_skewshuf);
+    lil_register(lil, "gest_shrink", l_gest_shrink);
+    lil_register(lil, "gest_grow", l_gest_grow);
 }

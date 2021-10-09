@@ -1671,12 +1671,64 @@ void gest_inertia(gest_d *g, SKFLT inertia)
     action_inertia(g, g->curtarget, inertia);
 }
 #+END_SRC
-** TODO shrink/grow
+** shrink/grow
 =gest_shrink= and =gest_grow= cause the mass to shrink
 and grow by a percentage value.
-** TODO speedup/slowdown
-=gest_speedup= and =gest_slowdown= cause the inertia
-to grow or shrink by a certain amount.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_shrink(gest_d *g, SKFLT amt);
+int gest_grow(gest_d *g, SKFLT amt);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static void grow_mass(gest_d *g, void *ud, int pos)
+{
+    SKFLT *amt;
+    amt = (SKFLT *) ud;
+    g->mass += g->mass * (*amt);
+}
+
+int gest_grow(gest_d *g, SKFLT amt)
+{
+    SKFLT *pamt;
+    gest_target *t;
+
+    if (g->curtarget == NULL) return 1;
+
+    t = g->curtarget;
+
+    pamt= gest_alloc(g, sizeof(SKFLT));
+    *pamt = amt;
+
+    append_action(g, t, grow_mass, pamt);
+    return 0;
+}
+
+static void shrink_mass(gest_d *g, void *ud, int pos)
+{
+    SKFLT *amt;
+    amt = (SKFLT *) ud;
+    g->mass -= g->mass * (*amt);
+}
+
+int gest_shrink(gest_d *g, SKFLT amt)
+{
+    SKFLT *pamt;
+    gest_target *t;
+
+    if (g->curtarget == NULL) return 1;
+
+    t = g->curtarget;
+
+    pamt= gest_alloc(g, sizeof(SKFLT));
+    *pamt = amt;
+
+    append_action(g, t, shrink_mass, pamt);
+    return 0;
+}
+#+END_SRC
 * Phrases
 A gesture is built of out of chunks known as as a =phrase=.
 Phrases convert an incoming conductor signal into a single

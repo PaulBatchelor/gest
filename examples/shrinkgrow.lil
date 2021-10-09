@@ -1,0 +1,64 @@
+gest_new
+dup
+gest_begin 6 6
+  gest_polyramp 4
+    gest_monoramp 3; gest_target 0; gest_smallgliss
+    gest_mass 0; gest_inertia 0.01
+    gest_target 5; gest_smallgliss
+
+  gest_monoramp 2; gest_polyramp 4
+    gest_monoramp 3; gest_target 7; gest_smallgliss
+    gest_target 9; gest_smallgliss
+
+  gest_monoramp 2; gest_polyramp 4
+    gest_target 10; gest_smallgliss
+    gest_mass 10
+    gest_target 12; gest_smallgliss
+    gest_grow 0.5
+    gest_target 9; gest_smallgliss
+    gest_grow 0.5
+    gest_target 10; gest_smallgliss
+    gest_grow 0.5
+  gest_polyramp 3
+    gest_target 9; gest_smallgliss
+    gest_grow 0.5
+    gest_target 7; gest_smallgliss
+    gest_target 5; gest_smallgliss
+    gest_shrink 0.5
+gest_end
+
+gest_begin 6 6
+  gest_target -2; gest_smallgliss
+  gest_mass -10
+  gest_monoramp 2; gest_target 5; gest_mediumgliss
+  gest_shrink 0.5
+  gest_target 4; gest_smallgliss
+  gest_shrink 0.5
+  gest_monoramp 2; gest_target 2; gest_smallgliss
+  gest_shrink 0.5
+gest_end
+
+gest_loopit
+gest_finish
+
+dup
+gestweight zz
+mul zz 30
+add zz 60
+mul zz [expr 1 / 60]
+
+phasor zz 0
+
+gesticulate zz zz
+
+add zz 61
+
+mtof zz
+
+blsaw zz
+mul zz 0.3
+butlp zz 1000
+
+wavout zz "shrinkgrow.wav"
+
+computes 30
