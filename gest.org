@@ -623,7 +623,6 @@ void gest_begin(gest_d *g, int beats, int div)
 
     /* TODO make this a targetondeck flag */
     set_curnode(g, g->phrase_selected->top);
-
 }
 #+END_SRC
 ** End
@@ -1636,6 +1635,31 @@ void gest_behavior_bezier(gest_d *g, SKFLT cx, SKFLT cy)
     bd->cx = cx;
     bd->cy = cy;
     set_behavior(g, bezier, bd);
+}
+#+END_SRC
+** Smoothstep
+Applies a smooth step function to the behavior.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_behavior_smoothstep(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static SKFLT smoothstep(gest_d *g, SKFLT a, void *ud)
+{
+    SKFLT out;
+
+    if (a <= 0) out = 0;
+    else if (a >= 1) out = 1;
+    else out = a * a * (3 - 2 * a);
+    return out;
+}
+
+void gest_behavior_smoothstep(gest_d *g)
+{
+    set_behavior(g, smoothstep, NULL);
 }
 #+END_SRC
 * Temporal Weight Commands

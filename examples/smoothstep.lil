@@ -1,0 +1,22 @@
+gest_new
+dup
+gest_begin 3 3
+gest_target 0
+gest_smallgliss
+gest_target 2
+gest_smoothstep
+gest_target 7
+gest_smoothstep
+gest_end
+gest_loopit
+gest_finish
+phasor 1.3 0
+gesticulate zz zz
+add zz 58
+mtof zz
+blsquare zz
+mul zz 0.3
+butlp zz 1000
+wavout zz "smoothstep.wav"
+
+computes 10
