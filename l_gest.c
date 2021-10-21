@@ -947,6 +947,28 @@ static lil_value_t l_gest_biramp(lil_t lil,
     return NULL;
 }
 
+static lil_value_t l_gest_gate(lil_t lil,
+                               size_t argc,
+                               lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+    SKFLT pos;
+
+    core = lil_get_data(lil);
+    SKLIL_ARITY_CHECK(lil, "gest_gate", argc, 1);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+    pos = lil_to_double(argv[0]);
+
+    gest_behavior_gate(g, pos);
+
+    sk_core_generic_push(core, g);
+    return NULL;
+}
+
 void sklil_load_gest(lil_t lil)
 {
     lil_register(lil, "gest_new", gest_new);
@@ -993,4 +1015,5 @@ void sklil_load_gest(lil_t lil)
     lil_register(lil, "gest_ramp", l_gest_ramp);
     lil_register(lil, "gest_invramp", l_gest_invramp);
     lil_register(lil, "gest_biramp", l_gest_biramp);
+    lil_register(lil, "gest_gate", l_gest_gate);
 }

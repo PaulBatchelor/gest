@@ -1774,6 +1774,39 @@ void gest_behavior_biramp(gest_d *g, SKFLT pos)
     set_behavior(g, biramp, ppos);
 }
 #+END_SRC
+** Gate
+Takes the input ramp, and produces a gate signal that is on
+(value of 1) for a relative percentage of the target before
+turning off (0).
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_behavior_gate(gest_d *g, SKFLT pos);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static SKFLT gatefun(gest_d *g, SKFLT a, void *ud)
+{
+    SKFLT *pos;
+    SKFLT out;
+
+    pos = ud;
+
+    if (a <= *pos) out = 1.0;
+    else out = 0.0;
+
+    return out;
+}
+
+void gest_behavior_gate(gest_d *g, SKFLT pos)
+{
+    SKFLT *ppos;
+    ppos = gest_alloc(g, sizeof(SKFLT));
+    *ppos = pos;
+    set_behavior(g, gatefun, ppos);
+}
+#+END_SRC
 * Temporal Weight Commands
 ** mass
 =gest_mass= the global mass to an absolute value.

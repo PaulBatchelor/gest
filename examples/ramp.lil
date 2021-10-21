@@ -37,6 +37,17 @@ gest_begin 4 4
   gest_biramp 0.9
 gest_end
 
+gest_begin 4 4
+  ramp
+  gest_gate 0.5
+  ramp
+  gest_gate 0.1
+  ramp
+  gest_gate 0.9
+  ramp
+  gest_gate 0.01
+gest_end
+
 gest_loopit
 gest_finish
 phasor 1.5 0
