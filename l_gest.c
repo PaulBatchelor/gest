@@ -889,6 +889,24 @@ static lil_value_t l_gest_smoothstep(lil_t lil,
     return NULL;
 }
 
+static lil_value_t l_gest_ramp(lil_t lil,
+                               size_t argc,
+                               lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+
+    core = lil_get_data(lil);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+    gest_ramp(g);
+
+    sk_core_generic_push(core, g);
+    return NULL;
+}
+
 void sklil_load_gest(lil_t lil)
 {
     lil_register(lil, "gest_new", gest_new);
@@ -932,4 +950,5 @@ void sklil_load_gest(lil_t lil)
     lil_register(lil, "gest_shrink", l_gest_shrink);
     lil_register(lil, "gest_grow", l_gest_grow);
     lil_register(lil, "gest_smoothstep", l_gest_smoothstep);
+    lil_register(lil, "gest_ramp", l_gest_ramp);
 }

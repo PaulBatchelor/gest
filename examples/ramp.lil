@@ -1,0 +1,30 @@
+func ramp {} {
+    gest_target 0
+    gest_linear
+    gest_ramp
+}
+
+gest_new
+dup
+gest_begin 4 4
+ramp
+gest_polyramp 2
+  ramp
+  ramp
+ramp
+gest_polyramp 3
+  ramp
+  ramp
+  ramp
+gest_end
+gest_loopit
+gest_finish
+phasor 1.5 0
+gesticulate zz zz
+scale zz 300 500
+blsaw zz
+butlp zz 300
+mul zz 0.5
+wavout zz "ramp.wav"
+
+computes 10
