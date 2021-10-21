@@ -583,6 +583,20 @@ gest_phrase *saved;
 #+BEGIN_SRC c
 g->saved = NULL;
 #+END_SRC
+** Main Mix Callback
+The main mix callback used to interpolate two targets
+given an alpha value (computed via the ramp tree). The
+default is to use linear interpolation.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+SKFLT (*mix)(gest_d *, SKFLT, SKFLT, SKFLT);
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC scheme
+g->mix = default_mix;
+#+END_SRC
 * Core Commands
 Some core commands for programming gestures.
 ** Begin
@@ -3017,9 +3031,15 @@ static void collection_cleanup(gest_collection *col)
 }
 #+END_SRC
 * Targets and Behaviors
+=Targets= in a Gesture are analogous to breakpoints in
+a line segment generator. The way in which a line travels
+from point A to point B in time is known as a =behavior=.
+
 Targets can be contained inside of a node. If the tree
 reaches a node with a target, it sets it to be that target
 when the node starts.
+
+Behaviors are contained inside of a Target.
 ** Struct Declaration
 A target in gest is known as a =gest_target=
 
@@ -3515,7 +3535,7 @@ a conductor phasor signal =conductor=, and the
 current position in the current audio block =blkpos=.
 If =blkpos= is not applicable, this can be set to be 0.
 
-Gest assumes that it is being used inside of an 
+Gest assumes that it is being used inside of an
 environment that internally uses fixed-size audio buffers
 to process audio (most computer music environments do
 this: PureData, SuperCollider, Csound, etc).
@@ -3615,7 +3635,11 @@ the output gesture.
 #+BEGIN_SRC c
 if (g->curtarget != NULL) {
     out = gest_behavior_tick(g->curtarget->curbehavior, g, out);
-    out = g->curtarget->mix(g, g->curval, g->nxtval, out);
+    if (g->curtarget->mix != NULL) {
+        out = g->curtarget->mix(g, g->curval, g->nxtval, out);
+    } else {
+        out = g->mix(g, g->curval, g->nxtval, out);
+    }
 }
 #+END_SRC
 
