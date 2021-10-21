@@ -1420,6 +1420,35 @@ int gest_ramp(gest_d *g)
     return 0;
 }
 #+END_SRC
+** Invramp
+Configures current target to return the inverse
+value (1 - ramp) of the ramp.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gest_invramp(gest_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static SKFLT mix_invramp(gest_d *g, SKFLT x, SKFLT y, SKFLT a)
+{
+    return 1 - a;
+}
+
+int gest_invramp(gest_d *g)
+{
+    gest_target *t;
+
+    t = g->curtarget;
+
+    if (t == NULL) return 1;
+
+    gest_target_mix(t, mix_invramp);
+
+    return 0;
+}
+#+END_SRC
 * Behavior Commands
 Behaviors are the means by which one target gets to thep
 next target.
@@ -1703,6 +1732,46 @@ static SKFLT smoothstep(gest_d *g, SKFLT a, void *ud)
 void gest_behavior_smoothstep(gest_d *g)
 {
     set_behavior(g, smoothstep, NULL);
+}
+#+END_SRC
+** Biramp
+Takes the linear ramp, and splits it in half at a particular
+position with an upwards and a downwards ramp. Intended to
+be used for LFO purposes.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_behavior_biramp(gest_d *g, SKFLT pos);
+#+END_SRC
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_behavior_biramp(gest_d *g, SKFLT pos);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static SKFLT biramp(gest_d *g, SKFLT a, void *ud)
+{
+    SKFLT *pos;
+    SKFLT out;
+
+    pos = ud;
+
+    if (*pos == 0 || *pos == 1) return *pos;
+
+    if (a < *pos) out = a / *pos;
+    else out = (1 - a) / (1 - *pos);
+
+    return out;
+}
+
+void gest_behavior_biramp(gest_d *g, SKFLT pos)
+{
+    SKFLT *ppos;
+    ppos = gest_alloc(g, sizeof(SKFLT));
+    *ppos = pos;
+    set_behavior(g, biramp, ppos);
 }
 #+END_SRC
 * Temporal Weight Commands
