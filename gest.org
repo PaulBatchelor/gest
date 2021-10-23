@@ -2277,6 +2277,7 @@ static gest_node * mkmonoramp(gest_d *g,
 
     n = gest_alloc(g, sizeof(gest_node));
     gest_node_init(n);
+
     n->type = NODE_MONORAMP;
     n->modifier = ninputs;
     n->parent = parent;
@@ -2769,7 +2770,9 @@ static void find_next_node(gest_d *g,
                            gest_state *state);
 #+END_SRC
 
-Traversal starts large and gets smaller.
+The control flow of traversal starts large (checking
+between phrases), and gets smaller (parent nodes, sibling
+nodes).
 
 To begin, check and see if the next node happens to be in
 the next phrase. That would mean the currently selected
@@ -2780,17 +2783,95 @@ next phrase is being found here, it has arrived a tad too
 early (which is actually better than being a
 tad too late, as it turns out. It's one or the other here).
 
+#+NAME: reset_and_wait_for_next_phrase
+#+BEGIN_SRC c
+/* next node is in next phrase */
+phrase = next_phrase(g, phrase);
+phrase = get_phrase(g, phrase);
+if (phrase != NULL) next = phrase->top;
+else next = NULL;
+g->num = 1;
+g->den = 1;
+if (next != NULL) {
+    next = dive_to_target(g, next);
+}
+please_wait = 1;
+#+END_SRC
+
+Alternatively, if there are still nodes in the top-level
+node, go there instead.
+
+TODO: do we need to handle edge case when next node is
+monoramp with a modifier greater than 1? We are doing
+that when finding sibling nodes.
+
+#+NAME: goto_next_child_in_top_node
+#+BEGIN_SRC c
+next = top->next;
+
+if (next->target == NULL) {
+    next = dive_to_target(g, next);
+}
+#+END_SRC
+
 If it's not the top of the tree, there is a general check
 to see if the current node is the right-most node relative
 to the position in the tree. If so, the node reverts the
 global modification it did, and goes up one level to the
 parent node to check the next node there.
 
+TODO: I can't
+remember why we are passing in the parent node and not
+the top node. As of writing, I also had to make a change
+to compensate for an edge case for when the rightmost node
+was a monoramp with a modifier >1 (similar
+to edge applied when recursively finding
+the next node). I guess this was never an
+issue before?
+
+#+NAME: goto_parent_node
+#+BEGIN_SRC c
+/* if top is a monoramp >1, revert it */
+if (top != last_reverted) {
+    if (top->type == NODE_MONORAMP && top->modifier > 1) {
+        /* revert the monoramp */
+        revert_modifier(g, top);
+    }
+}
+
+revert_modifier(g, top->parent);
+last_reverted = top->parent;
+top = top->parent;
+#+END_SRC
+
 Finally, the next node is found, and the program recursively
 dives into it to find the next target, applying modifiers
 along the way. Before that happens, the current node *may*
 need to revert the global modifier if it is a monoramp
 with a modifier greater than 1.
+
+#+NAME: find_next_node_with_target
+#+BEGIN_SRC c
+next = top->next;
+
+/* if top is a monoramp >1, revert it */
+
+if (top != last_reverted) {
+    if (top->type == NODE_MONORAMP && top->modifier > 1) {
+        /* revert the monoramp */
+        revert_modifier(g, top);
+    }
+}
+
+/* dive_to_target applies modifiers */
+/* continguous nodes on the same level don't have these */
+if (next->target == NULL) {
+    next = dive_to_target(g, next);
+} else if (next->type == NODE_MONORAMP && next->modifier > 1) {
+    /* next node is on same level but is monoramp */
+    apply_modifier(g, next);
+}
+#+END_SRC
 
 If the next node happens to be a monoramp with a modifier
 greater than 1, it will also apply modifications. But should
@@ -2823,54 +2904,19 @@ static void find_next_node(gest_d *g,
             /* are we at the end */
             /* if so, go to next phrase */
             if (top->next == NULL) {
-                /* next node is in next phrase */
-                phrase = next_phrase(g, phrase);
-                phrase = get_phrase(g, phrase);
-                if (phrase != NULL) next = phrase->top;
-                else next = NULL;
-                g->num = 1;
-                g->den = 1;
-                if (next != NULL) {
-                   next = dive_to_target(g, next);
-                }
-                please_wait = 1;
+                <<reset_and_wait_for_next_phrase>>
                 break;
             } else {
                 /* go to next child in top polyramp node */
-                next = top->next;
 
-                if (next->target == NULL) {
-                    next = dive_to_target(g, next);
-                }
+                <<goto_next_child_in_top_node>>
             }
         } else if (top->next == NULL) {
-            revert_modifier(g, top->parent);
-            last_reverted = top->parent;
-            top = top->parent;
+            <<goto_parent_node>>
         } else {
-            next = top->next;
-
-            /* if top is a monoramp >1, revert it */
-
-            if (top != last_reverted) {
-                if (top->type == NODE_MONORAMP && top->modifier > 1) {
-                    /* revert the monoramp */
-                    revert_modifier(g, top);
-                }
-            }
-
-            /* dive_to_target applies modifiers */
-            /* continguous nodes on the same level don't have these */
-            if (next->target == NULL) {
-                next = dive_to_target(g, next);
-            } else if (next->type == NODE_MONORAMP && next->modifier > 1) {
-                /* next node is on same level but is monoramp */
-                apply_modifier(g, next);
-            }
-
+            <<find_next_node_with_target>>
         }
     }
-
 
     state->num = g->num;
     state->den = g->den;
