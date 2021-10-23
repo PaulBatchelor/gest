@@ -2788,10 +2788,13 @@ tad too late, as it turns out. It's one or the other here).
 /* next node is in next phrase */
 phrase = next_phrase(g, phrase);
 phrase = get_phrase(g, phrase);
+
 if (phrase != NULL) next = phrase->top;
 else next = NULL;
+
 g->num = 1;
 g->den = 1;
+
 if (next != NULL) {
     next = dive_to_target(g, next);
 }
@@ -2820,14 +2823,19 @@ to the position in the tree. If so, the node reverts the
 global modification it did, and goes up one level to the
 parent node to check the next node there.
 
-TODO: I can't
-remember why we are passing in the parent node and not
-the top node. As of writing, I also had to make a change
-to compensate for an edge case for when the rightmost node
-was a monoramp with a modifier >1 (similar
-to edge applied when recursively finding
-the next node). I guess this was never an
-issue before?
+It may be a little bit confusing to see the parent node
+getting reverted and not the selected node. Parent nodes
+are the ones that apply their rhythmic influence, not the
+selected nodes. When the parent reverted, it reverts the
+global modifier to a state when the parent node was a child
+node to another node.
+
+There is an edge case when selected nodes do actually
+influence things: if the selected node is a monoramp with
+a value greater than 1, it will actually be scaling the
+phasor, as it needs to "eat" up beats in the polyramp
+it is a child of. These kinds of nodes will need to be
+reverted.
 
 #+NAME: goto_parent_node
 #+BEGIN_SRC c
