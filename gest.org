@@ -627,6 +627,51 @@ void gest_squawk(gest_d *g, int squawk)
     g->squawk = squawk;
 }
 #+END_SRC
+** Spillover Flag and Tolerance
+When =spillover= flag is engaged, it will enable phrases
+that did not fully complete (undershoot) to finish up
+by "spilling over" into the next phrase. This will cause
+the next phrase to start a bit later (and with any luck,
+this new phrase will be automatically adjusted to
+compensate using the course correction that happens
+during the beat check-in.)
+
+The =tolerance= is the amount which is allowed to spillover.
+This should be between 0 and 1, and ideally should be a very
+very small or zero value. The greater this value is, the
+more things that are allowed to spillover. Less
+ramp undershoot can be achieved this way, but at the risk
+of more clock sync issues.
+
+By default tolerance is at 0 (no spillover at all).
+
+Tolerance can be set with =gest_tolerance=.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+int spillover;
+SKFLT tolerance;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC scheme
+g->spillover = 0;
+gest_tolerance(g, 0);
+#+END_SRC
+
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_tolerance(gest_d *g, SKFLT tolerance);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_tolerance(gest_d *g, SKFLT tolerance)
+{
+    g->tolerance = tolerance;
+}
+#+END_SRC
 * Core Commands
 Some core commands for programming gestures.
 ** Begin
@@ -2580,6 +2625,8 @@ static SKFLT ramptree_step(gest_d *g,
 
     if (g->phrase_selected == NULL) return phs;
 
+    <<check_spillover>>
+
     <<beat_checkin>>
 
     inc *= g->phrase_selected->mod * g->correction;
@@ -2634,7 +2681,7 @@ closely match the conductor signal.
 
 #+NAME: beat_checkin
 #+BEGIN_SRC c
-if (reset) {
+if (reset && g->spillover == 0) {
     int limit;
     SKFLT goal;
 
@@ -2649,22 +2696,25 @@ if (reset) {
 
         amt = 1 - g->t;
 
-        g->beat = 0;
-        g->t = 0;
-        g->phs = 0;
-        g->please_wait = 0;
-        g->correction = 1.0;
-        g->targetondeck = 1;
-        g->phrase_selected = g->nxtstate.phrase;
+        if (amt > 0 && amt < g->tolerance) {
+            <<turn_on_spillover>>
+        } else {
+            g->beat = 0;
+            g->t = 0;
+            g->phs = 0;
+            g->please_wait = 0;
+            g->correction = 1.0;
+            g->targetondeck = 1;
+            g->phrase_selected = g->nxtstate.phrase;
 
+            if (g->squawk && amt > 0) {
+                fprintf(stderr, "Ramp undershot by %g\n", amt);
+            }
 
-        if (g->squawk && amt > 0) {
-            fprintf(stderr, "Ramp undershot by %g\n", amt);
+            /* reset if next state was told to wait */
+            g->nxtstate.please_wait = 0;
+            return phs;
         }
-
-        /* reset if next state was told to wait */
-        g->nxtstate.please_wait = 0;
-        return phs;
     }
 } else if (g->please_wait) {
     return 1.0;
@@ -3094,6 +3144,73 @@ this happens, the phrase is reset early, and caution
 is scattered to the wind. It's not an ideal situation, as
 this has the potential to create an audible glitch in the
 gesture.
+** Spillover
+In situations where phrases do not quite
+finish, but are mostly there (referred to as =undershoot=),
+=spillover= can be applied. This is a special mode that
+allows phrases to finish up in the next phrase.
+Spillover is used to solve the discontinuities caused
+by undershoot. However, too much spillover can cause timing
+issues with other phrases. By default, spillover is
+disabled.
+
+The amount of spillover a gesture can have is determined by
+a value called =tolerance=. Tolerance is a value between 0
+and 1, and should be a small value very close to or at zero.
+The greater the value is, the more spillover can happen.
+
+Spillover behavior is determined via the spillover flag.
+
+The spillover flag gets turned on during the beat checkin
+when the undershoot is within the tolerance level of being
+completed. Instead of going to the next phrase, it will
+resume as-is until it reaches the end of the phrase.
+
+#+NAME: turn_on_spillover
+#+BEGIN_SRC scheme
+if (g->squawk) {
+    fprintf(stderr, "spillover turned on\n");
+}
+g->spillover = 1;
+#+END_SRC
+
+The spillover flag gest turned off when the phrase has
+ended and is ready to go to the next phrase. At this
+point, the =please_wait= flag should be turned on. When
+the spillover and wait flags have both been enabled, gest
+will do what it would have done during the beat checkin and
+go to the next phrase. It will do this immediately and not
+wait for the next beat.
+
+#+NAME: check_spillover
+#+BEGIN_SRC scheme
+if (g->please_wait && g->spillover) {
+
+    /* Copied and pasted from beat-checkin code */
+    /* may want to wrap this in a function later */
+    g->beat = 0;
+    g->t = 0;
+    g->phs = 0;
+    g->please_wait = 0;
+    g->correction = 1.0;
+    g->targetondeck = 1;
+    g->phrase_selected = g->nxtstate.phrase;
+
+    g->spillover = 0;
+    /* reset if next state was told to wait */
+    /* TODO: is this needed here? */
+    g->nxtstate.please_wait = 0;
+
+    if (g->squawk) {
+        fprintf(stderr, "spillover turned off.\n");
+    }
+
+    return phs;
+}
+#+END_SRC
+
+In Spillover mode, beat check-in is skipped entirely;
+there is hardly a need for it, so it is ignored.
 * Memory Collections
 Memory-allocated things are managed in a data type known
 as a =collection=. Data allocated in a collection can be
