@@ -597,6 +597,36 @@ SKFLT (*mix)(gest_d *, SKFLT, SKFLT, SKFLT);
 #+BEGIN_SRC scheme
 g->mix = default_mix;
 #+END_SRC
+** Squawk Level
+The =squawk= is a value that determines how
+much verbosity is printed on screen. It can be
+set with =gest_squawk=. The higher the number,
+the more squawk. By default, it is set to be 0,
+or no squawking.
+
+#+NAME: gest_d
+#+BEGIN_SRC c
+int squawk;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC scheme
+gest_squawk(g, 0);
+#+END_SRC
+
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gest_squawk(gest_d *g, int squawk);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gest_squawk(gest_d *g, int squawk)
+{
+    g->squawk = squawk;
+}
+#+END_SRC
 * Core Commands
 Some core commands for programming gestures.
 ** Begin
@@ -2615,6 +2645,10 @@ if (reset) {
     if (g->t > 0) g->correction = goal / g->t;
 
     if (g->beat >= limit) {
+        SKFLT amt;
+
+        amt = 1 - g->t;
+
         g->beat = 0;
         g->t = 0;
         g->phs = 0;
@@ -2622,6 +2656,11 @@ if (reset) {
         g->correction = 1.0;
         g->targetondeck = 1;
         g->phrase_selected = g->nxtstate.phrase;
+
+
+        if (g->squawk && amt > 0) {
+            fprintf(stderr, "Ramp undershot by %g\n", amt);
+        }
 
         /* reset if next state was told to wait */
         g->nxtstate.please_wait = 0;
