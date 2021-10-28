@@ -100,7 +100,6 @@ int pw_node_gesticulate(pw_node *node, gest_d *g)
 
     rc = pw_node_cables_alloc(node, 2);
 
-
     if (rc != PW_OK) return rc;
 
     pw_node_set_block(node, 1);
@@ -386,3 +385,99 @@ int sk_node_gestick(sk_core *core)
     return 0;
 }
 
+
+typedef struct {
+    SKFLT bpm, pbpm;
+    SKFLT phs;
+    SKFLT inc;
+    SKFLT onedsr;
+} conductor_dsp;
+
+typedef struct {
+    pw_cable *bpm;
+    pw_cable *out;
+    conductor_dsp dsp;
+} conductor_n;
+
+static void conductor_compute(pw_node *node)
+{
+    conductor_n *cnd;
+    conductor_dsp *dsp;
+    int n, blksize;
+
+    blksize = pw_node_blksize(node);
+    cnd = pw_node_get_data(node);
+    dsp = &cnd->dsp;
+
+    for (n = 0; n < blksize; n++) {
+        SKFLT bpm, out;
+        SKFLT phs;
+        out = 0;
+
+        bpm = pw_cable_get(cnd->bpm, n);
+        dsp->bpm = bpm;
+
+        if (dsp->bpm != dsp->pbpm) {
+            dsp->pbpm = dsp->bpm;
+            dsp->inc = (dsp->bpm / 60.0) * dsp->onedsr;
+        }
+
+        phs = dsp->phs;
+        out = dsp->phs;
+
+        phs += dsp->inc;
+
+        if (phs > 1) phs = 0;
+
+        dsp->phs = phs;
+        pw_cable_set(cnd->out, n, out);
+    }
+}
+
+static void conductor_destroy(pw_node *node)
+{
+    pw_patch *patch;
+    int rc;
+    void *ud;
+    rc = pw_node_get_patch(node, &patch);
+    if (rc != PW_OK) return;
+    ud = pw_node_get_data(node);
+    pw_memory_free(patch, &ud);
+    pw_node_cables_free(node);
+}
+
+int pw_node_conductor(pw_node *node)
+{
+    int rc;
+    pw_patch *patch;
+    conductor_n *cnd;
+    void *ud;
+
+    rc = pw_node_get_patch(node, &patch);
+    if (rc != PW_OK) return rc;
+
+    rc = pw_memory_alloc(patch, sizeof(conductor_n), &ud);
+
+    if (rc != PW_OK) return PW_OK;
+
+    cnd = (conductor_n *)ud;
+
+    rc = pw_node_cables_alloc(node, 2);
+
+    if (rc != PW_OK) return rc;
+
+    pw_node_get_cable(node, 0, &cnd->bpm);
+    pw_node_set_block(node, 1);
+    pw_node_get_cable(node, 1, &cnd->out);
+
+    cnd->dsp.bpm = 0;
+    cnd->dsp.pbpm = -1;
+    cnd->dsp.phs = 0;
+    cnd->dsp.inc = 0;
+    cnd->dsp.onedsr = 1.0 / (SKFLT)pw_patch_srate_get(patch);
+
+    pw_node_set_data(node, cnd);
+    pw_node_set_compute(node, conductor_compute);
+    pw_node_set_destroy(node, conductor_destroy);
+    return PW_OK;
+}
