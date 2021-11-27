@@ -1,7 +1,7 @@
 /* gcc -I.. example.c ../gest.c ../skgest.c -o example -lsndkit */
 
 #include <stdlib.h>
-#include <sndkit/patchwerk.h>
+#include <sndkit/graforge.h>
 #include <sndkit/core.h>
 #include <sndkit/sknodes.h>
 

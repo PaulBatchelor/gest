@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <sndkit/patchwerk.h>
+#include <sndkit/graforge.h>
 #include <sndkit/core.h>
 #include <sndkit/lil.h>
 #include <sndkit/sklil.h>

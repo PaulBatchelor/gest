@@ -3,7 +3,7 @@
 #include <string.h>
 #include <time.h> /* for rseed */
 #include "sndkit/lil.h"
-#include "sndkit/patchwerk.h"
+#include "sndkit/graforge.h"
 #include "sndkit/core.h"
 #include "sndkit/sklil.h"
 #include "gest.h"

@@ -4989,7 +4989,7 @@ void gest_scalar_init(gest_scalar *s)
 
 The current/next value approach with a position flag allows
 for up to one change to happen inside of a audio block. In
-patchwerk, this is typically a block size of 64 samples.
+graforge, this is typically a block size of 64 samples.
 This means targets cannot be spaced less thans than 1ms
 apart. For most situations, this is an acceptable
 limitation. As a result, what is achieved is a very
