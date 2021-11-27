@@ -78,7 +78,7 @@ static void destroy(gf_node *node)
     int rc;
     void *ud;
     rc = gf_node_get_patch(node, &patch);
-    if (rc != PW_OK) return;
+    if (rc != GF_OK) return;
     gf_node_cables_free(node);
     ud = gf_node_get_data(node);
     gf_memory_free(patch, &ud);
@@ -92,15 +92,15 @@ int gf_node_gesticulate(gf_node *node, gest_d *g)
     void *ud;
 
     rc = gf_node_get_patch(node, &patch);
-    if (rc != PW_OK) return rc;
+    if (rc != GF_OK) return rc;
 
     rc = gf_memory_alloc(patch, sizeof(struct gest_n), &ud);
-    SK_PW_ERROR_CHECK(rc);
+    SK_GF_ERROR_CHECK(rc);
     gest = (struct gest_n *)ud;
 
     rc = gf_node_cables_alloc(node, 2);
 
-    if (rc != PW_OK) return rc;
+    if (rc != GF_OK) return rc;
 
     gf_node_set_block(node, 1);
 
@@ -111,7 +111,7 @@ int gf_node_gesticulate(gf_node *node, gest_d *g)
     gf_node_set_data(node, gest);
     gf_node_set_compute(node, compute);
     gf_node_set_destroy(node, destroy);
-    return PW_OK;
+    return GF_OK;
 }
 
 int sk_node_gesticulate(sk_core *core)
@@ -131,10 +131,10 @@ int sk_node_gesticulate(sk_core *core)
     patch = sk_core_patch(core);
 
     rc = gf_patch_new_node(patch, &node);
-    SK_PW_ERROR_CHECK(rc);
+    SK_GF_ERROR_CHECK(rc);
 
     rc = gf_node_gesticulate(node, g);
-    SK_PW_ERROR_CHECK(rc);
+    SK_GF_ERROR_CHECK(rc);
 
     sk_param_set(core, node, &conductor, 0);
     sk_param_out(core, node, 1);
@@ -149,10 +149,10 @@ int gf_node_gestweight(gf_node *node, gest_d *g)
     gf_patch *patch;
 
     rc = gf_node_get_patch(node, &patch);
-    if (rc != PW_OK) return rc;
+    if (rc != GF_OK) return rc;
 
     rc = gf_memory_alloc(patch, sizeof(struct gestweight_n), &ud);
-    if (rc != PW_OK) return rc;
+    if (rc != GF_OK) return rc;
     gw = (struct gestweight_n *)ud;
 
     gw->gest = g;
@@ -163,7 +163,7 @@ int gf_node_gestweight(gf_node *node, gest_d *g)
     gw->prev = 0;
 
     rc = gf_node_cables_alloc(node, 1);
-    if (rc != PW_OK) return rc;
+    if (rc != GF_OK) return rc;
 
     gf_node_set_block(node, 0);
 
@@ -174,7 +174,7 @@ int gf_node_gestweight(gf_node *node, gest_d *g)
     gf_node_set_destroy(node, destroy);
 
 
-    return PW_OK;
+    return GF_OK;
 }
 
 int sk_node_gestweight(sk_core *core)
@@ -190,10 +190,10 @@ int sk_node_gestweight(sk_core *core)
     patch = sk_core_patch(core);
 
     rc = gf_patch_new_node(patch, &node);
-    SK_PW_ERROR_CHECK(rc);
+    SK_GF_ERROR_CHECK(rc);
 
     rc = gf_node_gestweight(node, g);
-    SK_PW_ERROR_CHECK(rc);
+    SK_GF_ERROR_CHECK(rc);
 
     sk_param_out(core, node, 0);
     return 0;
@@ -278,17 +278,17 @@ int gf_node_gescalar(gf_node *node, gest_scalar *s)
     int rc;
 
     rc = gf_node_get_patch(node, &patch);
-    if (rc != PW_OK) return rc;
+    if (rc != GF_OK) return rc;
 
     rc = gf_node_cables_alloc(node, 1);
     gf_node_set_block(node, 0);
 
-    if (rc != PW_OK) return rc;
+    if (rc != GF_OK) return rc;
 
     gf_node_set_compute(node, scalar_compute);
     gf_node_set_data(node, s);
 
-    return PW_OK;
+    return GF_OK;
 }
 
 int sk_node_gescalar(sk_core *core)
@@ -304,10 +304,10 @@ int sk_node_gescalar(sk_core *core)
     patch = sk_core_patch(core);
 
     rc = gf_patch_new_node(patch, &node);
-    SK_PW_ERROR_CHECK(rc);
+    SK_GF_ERROR_CHECK(rc);
 
     rc = gf_node_gescalar(node, s);
-    SK_PW_ERROR_CHECK(rc);
+    SK_GF_ERROR_CHECK(rc);
 
     sk_param_out(core, node, 0);
     return 0;
@@ -350,17 +350,17 @@ int gf_node_gestick(gf_node *node, gest_scalar *s)
     int rc;
 
     rc = gf_node_get_patch(node, &patch);
-    if (rc != PW_OK) return rc;
+    if (rc != GF_OK) return rc;
 
     rc = gf_node_cables_alloc(node, 1);
     gf_node_set_block(node, 0);
 
-    if (rc != PW_OK) return rc;
+    if (rc != GF_OK) return rc;
 
     gf_node_set_compute(node, stick_compute);
     gf_node_set_data(node, s);
 
-    return PW_OK;
+    return GF_OK;
 }
 
 int sk_node_gestick(sk_core *core)
@@ -376,10 +376,10 @@ int sk_node_gestick(sk_core *core)
     patch = sk_core_patch(core);
 
     rc = gf_patch_new_node(patch, &node);
-    SK_PW_ERROR_CHECK(rc);
+    SK_GF_ERROR_CHECK(rc);
 
     rc = gf_node_gestick(node, s);
-    SK_PW_ERROR_CHECK(rc);
+    SK_GF_ERROR_CHECK(rc);
 
     sk_param_out(core, node, 0);
     return 0;
@@ -440,7 +440,7 @@ static void conductor_destroy(gf_node *node)
     int rc;
     void *ud;
     rc = gf_node_get_patch(node, &patch);
-    if (rc != PW_OK) return;
+    if (rc != GF_OK) return;
     ud = gf_node_get_data(node);
     gf_memory_free(patch, &ud);
     gf_node_cables_free(node);
@@ -454,17 +454,17 @@ int gf_node_conductor(gf_node *node)
     void *ud;
 
     rc = gf_node_get_patch(node, &patch);
-    if (rc != PW_OK) return rc;
+    if (rc != GF_OK) return rc;
 
     rc = gf_memory_alloc(patch, sizeof(conductor_n), &ud);
 
-    if (rc != PW_OK) return PW_OK;
+    if (rc != GF_OK) return GF_OK;
 
     cnd = (conductor_n *)ud;
 
     rc = gf_node_cables_alloc(node, 2);
 
-    if (rc != PW_OK) return rc;
+    if (rc != GF_OK) return rc;
 
     gf_node_get_cable(node, 0, &cnd->bpm);
     gf_node_set_block(node, 1);
@@ -479,5 +479,5 @@ int gf_node_conductor(gf_node *node)
     gf_node_set_data(node, cnd);
     gf_node_set_compute(node, conductor_compute);
     gf_node_set_destroy(node, conductor_destroy);
-    return PW_OK;
+    return GF_OK;
 }
