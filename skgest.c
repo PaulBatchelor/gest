@@ -31,7 +31,7 @@ static void compute(gf_node *node)
     gest = (struct gest_n *)gf_node_get_data(node);
 
     for (n = 0; n < blksize; n++) {
-        PWFLT out, conductor;
+        GFFLT out, conductor;
         conductor = gf_cable_get(gest->conductor, n);
 
         out = gest_tick(gest->gest, conductor, n);
@@ -50,8 +50,8 @@ static void compute_weight(gf_node *node)
     gw = (struct gestweight_n *)gf_node_get_data(node);
 
     for (n = 0; n < blksize; n++) {
-        PWFLT out;
-        PWFLT i;
+        GFFLT out;
+        GFFLT i;
 
         i = gest_inertia_get(gw->gest);
 
