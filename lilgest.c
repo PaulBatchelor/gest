@@ -1,8 +1,8 @@
 #include <stdio.h>
-#include <sndkit/graforge.h>
+#include <sndkit/graforge/graforge.h>
 #include <sndkit/core.h>
-#include <sndkit/lil.h>
-#include <sndkit/sklil.h>
+#include <sndkit/lil/lil.h>
+#include <sndkit/nodes/sklil.h>
 
 void sklil_load_gest(lil_t lil);
 void sklil_loader_withextra(lil_t lil);

@@ -2,10 +2,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h> /* for rseed */
-#include "sndkit/lil.h"
-#include "sndkit/graforge.h"
+#include "sndkit/lil/lil.h"
+#include "sndkit/graforge/graforge.h"
 #include "sndkit/core.h"
-#include "sndkit/sklil.h"
+#include "sndkit/nodes/sklil.h"
 #include "gest.h"
 
 int sk_node_gesticulate(sk_core *core);

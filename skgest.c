@@ -1,6 +1,6 @@
 #include <math.h>
 #include <stdlib.h>
-#include "sndkit/graforge.h"
+#include "sndkit/graforge/graforge.h"
 #include "sndkit/core.h"
 #include "gest.h"
 
