@@ -2,13 +2,15 @@ OBJ=gest.o skgest.o
 
 CFLAGS=-Wall -pedantic -O3 -g
 
+WORGLE=skorgle
+
 default: lilgest
 
 lilgest: $(OBJ) lilgest.o l_gest.o
 	$(CC) $(CFLAGS) $(OBJ) l_gest.o lilgest.o -o $@ -lsndkit -lm
 
 gest.c: gest.org
-	worgle -g -Werror $<
+	$(WORGLE) -g -Werror $<
 
 %.o: %.c
 	$(CC) -c $(CFLAGS) $< -o $@
