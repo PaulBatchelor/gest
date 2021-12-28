@@ -3094,64 +3094,6 @@ checks in place for this).
 while (phs > 1) phs--;
 phs = 0; /* just kidding, truncate */
 #+END_SRC
-** Handling Roundoff Error in Phrases
-Roundoff error is a natural part of working with floating
-point, and difficult to avoid entirely. Roundoff error
-in this context leads to temporal drift in the timing
-signal. Unchecked, this will eventually lead to phrases
-being completly out of step with the rest of the music
-surrounding it.
-
-Chunking gestures into phrases helps thwart some of the
-major drift buildup that can occur over time. Phrases
-ensure that any drift is localized, which, if the phrases
-are small enough, should be quite negligible for most
-musical purposes.
-
-The Ramp Tree in a phrase applies many manipulations to a
-phasor signal, and this can cause phrases to either finish
-too quickly or too slowly. If choosing one or the other,
-finishing too quickly is always the preference.
-
-If a phrase ends before the conductor does, it is told to
-wait. While waiting, it will only return 1 without updating
-any state. When the conductor finally does catch up, the
-phrase will be granted permission to move on to the next
-phrase.
-
-Every time the phasor in a conductor signal resets (wraps
-back), it registered as a new beat. This beat gives gest
-an opportunity to "check in" with itself. Is it going ahead
-of schedule? Behind? And then, try to make the appropriate
-corrections.
-
-The progress of a phrase is kept inside of a monoramp that
-spans the duration of the phrase, and the beat position is
-kept track of as a sort of counter. A new beat indicates the
-ideal time position, which can be compared against the the
-actual position in the progress monoramp.
-
-Dividing the ideal position and actual position gives us
-a correction factor that slightly speeds up or slows down
-the phasor within the beat. If the ideal is a bit farther
-along, the correction factor will be a value greater than 1
-that runs to catch up. If the ideal is a bit behind, the
-factor will be less than 1, and will hold things back until
-the next beat.
-
-With any luck, the phrase will end just slightly before
-the conductor, allowing it to wait for the next signal.
-This happens when the monoramp exceeds 1 and/or the ramp
-tree hits the end of the phrase. At any rate, a flag is set.
-
-There can also be cases where the phrase is too slow.
-Hopefully, it is fast enough to be wrapping up the last
-target in the ramp tree. This is detected when a beat
-happens that is past the duration of the phrase. When
-this happens, the phrase is reset early, and caution
-is scattered to the wind. It's not an ideal situation, as
-this has the potential to create an audible glitch in the
-gesture.
 ** Spillover
 In situations where phrases do not quite
 finish, but are mostly there (referred to as =undershoot=),
