@@ -67,6 +67,7 @@ struct gestlang_d {
     void *ud;
     int err;
     <<gest_dict>>
+    <<comments>>
 };
 #+END_SRC
 
@@ -136,7 +137,11 @@ void gestlang_bye(gestlang_d *glang)
 }
 #+END_SRC
 * Parse
-Parses a buffer of text with =gestlang_parse=.
+=gestlang_parse= will parse a string of text, and assumes
+the string is complete.
+
+=gestlang_parse_buffer= will parse a buffer of text, and
+is designed to be used for streaming.
 
 #+NAME: funcdefs
 #+BEGIN_SRC c
@@ -144,6 +149,11 @@ int gestlang_parse(gestlang_d *glang,
                    gest_d *gest,
                    const char *buf,
                    int sz);
+
+int gestlang_parse_buffer(gestlang_d *glang,
+                          gest_d *gest,
+                          const char *buf,
+                          int sz);
 #+END_SRC
 
 #+NAME: funcs
@@ -152,6 +162,23 @@ int gestlang_parse(gestlang_d *glang,
                    gest_d *gest,
                    const char *buf,
                    int sz)
+{
+    gestlang_parse_buffer(glang, gest, buf, sz);
+    if (glang->wsz > 0) {
+        glang->word[glang->wsz] = '\0';
+        parse_word(glang, gest);
+        glang->wsz = 0;
+    }
+    return 0;
+}
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gestlang_parse_buffer(gestlang_d *glang,
+                          gest_d *gest,
+                          const char *buf,
+                          int sz)
 {
     <<tokenize>>
     return 0;
@@ -164,6 +191,7 @@ int i;
 
 for (i = 0; i < sz; i++) {
     if (glang->err) return glang->err;
+    <<handle_comments>>
     if (glang->wsz >= 64) {
         glang->word[63] = '\0';
         parse_word(glang, gest);
@@ -177,12 +205,6 @@ for (i = 0; i < sz; i++) {
         glang->wsz++;
     }
 
-}
-
-if (glang->wsz > 0) {
-    glang->word[glang->wsz] = '\0';
-    parse_word(glang, gest);
-    glang->wsz = 0;
 }
 #+END_SRC
 ** Stage 2: parse words
@@ -199,6 +221,7 @@ static void parse_word(gestlang_d *glang, gest_d *gest)
     if (glang->wsz <= 0) return;
     if (glang->argpos < 0) {
         glang->argpos = 0;
+
         if (find_word(glang)) {
             fprintf(stderr, "could not find function %s\n", glang->word);
             glang->err = 2;
@@ -283,7 +306,7 @@ int gestlang_load(gestlang_d *glang,
     while (!feof(fp)) {
         int sz;
         sz = fread(buf, 1, 128, fp);
-        rc = gestlang_parse(glang, gest, buf, sz);
+        rc = gestlang_parse_buffer(glang, gest, buf, sz);
         if (rc) break;
     }
 
@@ -720,3 +743,57 @@ gestlang_add(glang, "gl", 2, 0, f_gl, NULL, NULL);
 ** irmp (invramp)
 ** br (biramp)
 ** gt (gate)
+* Comments
+A common practice for comments is to use '#', and
+from there until the end of the line the.
+
+#+NAME: comments
+#+BEGIN_SRC c
+int comment;
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+glang->comment = 0;
+#+END_SRC
+
+The '#' can be implemented as a word! when called, it turns
+on the comment flag.
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static int f_comment(gest_d *g, int argc, char *argv[], void *ud);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static int f_comment(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gestlang_d *glang;
+
+    glang = ud;
+
+    glang->comment = 1;
+
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "#", 1, 0, f_comment, glang, NULL);
+#+END_SRC
+
+The comment flag, once enabled, will ignore characters until
+the next newline.
+
+#+NAME: handle_comments
+#+BEGIN_SRC c
+if (glang->comment) {
+    if (buf[i] == '\n') {
+        glang->comment = 0;
+        glang->wsz = 0;
+    }
+    continue;
+}
+#+END_SRC
