@@ -1,0 +1,561 @@
+#+TITLE: Gestlang
+* Overview
+This implements a very small DSL for notating gestures
+in Gest.
+
+For example:
+
+#+BEGIN_SRC text
+beg 3 3
+mr 2 t 0 lin
+pr 4
+t 7 sg
+t 4 sg
+t 2 sg
+t -1 sg
+end
+loop fin
+#+END_SRC
+
+The parser is quite small and limited, but it should save
+a few keystrokes.
+* Tangled Files
+=gestlang.c= and =gestlang.h=.
+
+#+NAME: gestlang.h
+#+BEGIN_SRC c :tangle gestlang.h
+#ifndef GESTLANG_H
+#define GESTLANG_H
+<<typedefs>>
+
+#ifdef GESTLANG_PRIV
+<<structs>>
+#endif
+
+<<funcdefs>>
+#endif
+#+END_SRC
+
+#+NAME: gestlang.c
+#+BEGIN_SRC c :tangle gestlang.c
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include "gest.h"
+#define GESTLANG_PRIV
+#include "gestlang.h"
+<<static_funcdefs>>
+<<funcs>>
+#+END_SRC
+* State
+#+NAME: typedefs
+#+BEGIN_SRC c
+typedef struct gestlang_d gestlang_d;
+#+END_SRC
+
+#+NAME: structs
+#+BEGIN_SRC c
+struct gestlang_d {
+    char word[64];
+    char pool[256];
+    char *args[8];
+    int argpos;
+    int psz;
+    int nargs;
+    int wsz;
+    int (*fun)(gest_d *,int,char **,void*);
+    void *ud;
+    int err;
+    <<gest_dict>>
+};
+#+END_SRC
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+size_t gestlang_sizeof(void);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+size_t gestlang_sizeof(void)
+{
+    return sizeof(gestlang_d);
+}
+#+END_SRC
+* Initialization/Cleanup
+Initialize with =gestlang_init=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gestlang_init(gestlang_d *glang);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gestlang_init(gestlang_d *glang)
+{
+    <<init>>
+}
+#+END_SRC
+
+#+NAME: init
+#+BEGIN_SRC c
+{
+    int i;
+    glang->ud = NULL;
+    glang->err = 0;
+    glang->wsz = 0;
+    glang->nargs = 0;
+    glang->psz = 0;
+    glang->argpos = -1;
+
+    for (i = 0; i < 64; i++) {
+        glang->word[i] = 0;
+    }
+
+    for (i = 0; i < 256; i++) {
+        glang->pool[i] = 0;
+    }
+
+    for (i = 0; i < 8; i++) {
+        glang->args[i] = NULL;
+    }
+}
+#+END_SRC
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gestlang_bye(gestlang_d *glang);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gestlang_bye(gestlang_d *glang)
+{
+    <<cleanup>>
+}
+#+END_SRC
+* Parse
+Parses a buffer of text with =gestlang_parse=.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gestlang_parse(gestlang_d *glang,
+                   gest_d *gest,
+                   const char *buf,
+                   int sz);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gestlang_parse(gestlang_d *glang,
+                   gest_d *gest,
+                   const char *buf,
+                   int sz)
+{
+    <<tokenize>>
+    return 0;
+}
+#+END_SRC
+** Stage 1: tokenize
+#+NAME: tokenize
+#+BEGIN_SRC c
+int i;
+
+for (i = 0; i < sz; i++) {
+    if (glang->err) return glang->err;
+    if (glang->wsz >= 64) {
+        glang->word[63] = '\0';
+        parse_word(glang, gest);
+        glang->wsz = 0;
+    } else if (buf[i] == ' ' || buf[i] == '\n') {
+        glang->word[glang->wsz] = '\0';
+        parse_word(glang, gest);
+        glang->wsz = 0;
+    } else {
+        glang->word[glang->wsz] = buf[i];
+        glang->wsz++;
+    }
+
+}
+
+if (glang->wsz > 0) {
+    glang->word[glang->wsz] = '\0';
+    parse_word(glang, gest);
+    glang->wsz = 0;
+}
+#+END_SRC
+** Stage 2: parse words
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static void parse_word(gestlang_d *glang, gest_d *gest);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int find_function(gestlang_d *glang)
+{
+    int rc;
+    gestlang_entry *ent;
+
+    rc = gestlang_find(glang, glang->word, glang->wsz, &ent);
+
+    if (rc) return rc;
+
+    glang->fun = ent->fun;
+    glang->nargs = ent->nargs;
+
+    return 0;
+}
+
+static void parse_word(gestlang_d *glang, gest_d *gest)
+{
+    if (glang->argpos < 0) {
+        glang->argpos = 0;
+        if (find_function(glang)) {
+            fprintf(stderr, "could not find function %s\n", glang->word);
+            glang->err = 2;
+            return;
+        }
+
+        if (glang->nargs == 0) {
+            glang->fun(gest, glang->nargs, glang->args, glang->ud);
+            glang->psz = 0;
+            glang->argpos = -1;
+        }
+    } else {
+        int c;
+
+        for (c = 0; c < glang->wsz; c++) {
+            if (glang->psz >= 256) {
+                glang->psz = 0;
+                glang->err = 1;
+                return;
+            }
+            glang->pool[glang->psz + c] = glang->word[c];
+        }
+        glang->args[glang->argpos] = &glang->pool[glang->psz];
+        glang->psz += glang->wsz;
+        glang->pool[glang->psz] = '\0';
+        glang->psz++;
+
+        glang->argpos++;
+
+        if (glang->argpos == glang->nargs) {
+            glang->fun(gest, glang->nargs, glang->args, glang->ud);
+            glang->psz = 0;
+            glang->argpos = -1;
+        }
+    }
+}
+#+END_SRC
+** Loading a file
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gestlang_load(gestlang_d *glang,
+                  gest_d *gest,
+                  const char *filename);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gestlang_load(gestlang_d *glang,
+                  gest_d *gest,
+                  const char *filename)
+{
+    char *buf;
+    FILE *fp;
+    int rc;
+
+    fp = fopen(filename, "r");
+
+    if (fp == NULL) return 1;
+    buf = calloc(1, 128);
+
+    rc = 0;
+
+    while (!feof(fp)) {
+        int sz;
+        sz = fread(buf, 1, 128, fp);
+        rc = gestlang_parse(glang, gest, buf, sz);
+        if (rc) break;
+    }
+
+    free(buf);
+    fclose(fp);
+    return rc;
+}
+#+END_SRC
+* Dictionary
+** structs
+An entry is a =gestlang_entry=.
+
+#+NAME: typedefs
+#+BEGIN_SRC c
+typedef struct gestlang_entry gestlang_entry;
+#+END_SRC
+
+#+NAME: structs
+#+BEGIN_SRC c
+struct gestlang_entry {
+    char word[16];
+    int sz;
+    int (*fun)(gest_d *,int,char **,void*);
+    int nargs;
+    void *ud;
+    void (*del)(void *);
+    gestlang_entry *nxt;
+};
+#+END_SRC
+
+16 of these makes up the hashmap.
+
+#+NAME: gest_dict
+#+BEGIN_SRC c
+gestlang_entry *ent[16];
+#+END_SRC
+** init
+#+NAME: init
+#+BEGIN_SRC c
+{
+    int i;
+
+    for (i = 0; i < 16; i++) glang->ent[i] = NULL;
+}
+#+END_SRC
+** hash
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static int hash(const char *str, int sz);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static int hash(const char *str, int sz)
+{
+    unsigned long h;
+    int i;
+
+    h = 5381;
+    i = 0;
+
+    for(i = 0; i < sz; i++) {
+        h = ((h << 5) + h) ^ str[i];
+        h %= 0x7FFFFFFF;
+    }
+
+    return h % 16;
+}
+#+END_SRC
+** add
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gestlang_add(gestlang_d *glang,
+                  const char *key,
+                  int sz,
+                  int nargs,
+                  int (*fun)(gest_d *,int,char **,void*),
+                  void *ud,
+                  void (*del)(void *));
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gestlang_add(gestlang_d *glang,
+                  const char *key,
+                  int sz,
+                  int nargs,
+                  int (*fun)(gest_d *,int,char **,void *),
+                  void *ud,
+                  void (*del)(void *))
+{
+    int pos;
+    gestlang_entry *ent;
+    int n;
+
+    if (sz >= 16) return;
+
+    ent = calloc(1, sizeof(gestlang_entry));
+
+    for (n = 0; n < sz; n++) {
+        ent->word[n] = key[n];
+    }
+
+    ent->word[sz] = '\0';
+    ent->sz = sz;
+
+    ent->fun = fun;
+    ent->del = del;
+    ent->nargs = nargs;
+    ent->ud = ud;
+    ent->nxt = NULL;
+
+    pos = hash(key, sz);
+
+    if (glang->ent[pos] == NULL) {
+        glang->ent[pos] = ent;
+    } else {
+        ent->nxt = glang->ent[pos];
+        glang->ent[pos] = ent;
+    }
+}
+#+END_SRC
+** cleanup
+#+NAME: cleanup
+#+BEGIN_SRC c
+{
+    int i;
+
+    for (i = 0; i < 16; i++) {
+        gestlang_entry *ent, *nxt;;
+
+        ent = glang->ent[i];
+
+        while (ent != NULL) {
+            nxt = ent->nxt;
+
+            if (ent->del != NULL) {
+                ent->del(ent->ud);
+            }
+
+            free(ent);
+            ent = nxt;
+        }
+    }
+}
+#+END_SRC
+** find
+#+NAME: funcdefs
+#+BEGIN_SRC c
+int gestlang_find(gestlang_d *glang,
+                  const char *key,
+                  int sz,
+                  gestlang_entry **pent);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+int gestlang_find(gestlang_d *glang,
+                  const char *key,
+                  int sz,
+                  gestlang_entry **pent)
+{
+    int pos;
+    gestlang_entry *ent;
+
+    pos = hash(key, sz);
+
+    ent = glang->ent[pos];
+
+    while(ent != NULL) {
+        if (ent->sz == sz && !strcmp(key, ent->word)) {
+            *pent = ent;
+            return 0;
+        }
+        ent = ent->nxt;
+    }
+
+    return 1;
+}
+#+END_SRC
+* Default Words
+** loader
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gestlang_loader(gestlang_d *g);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+<<words>>
+void gestlang_loader(gestlang_d *glang)
+{
+    <<loader>>
+}
+#+END_SRC
+** beg (begin)
+#+NAME: words
+#+BEGIN_SRC c
+static int f_beg(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_begin(g, atoi(argv[0]), atoi(argv[1]));
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "beg", 3, 2, f_beg, NULL, NULL);
+#+END_SRC
+** t (target)
+#+NAME: words
+#+BEGIN_SRC c
+static int f_tar(gest_d *g, int argc, char *argv[], void *ud)
+{
+    return gest_addtarget(g, strtod(argv[0], 0));
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "t", 1, 1, f_tar, NULL, NULL);
+#+END_SRC
+** stp (step)
+#+NAME: words
+#+BEGIN_SRC c
+static int f_stp(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_behavior_step(g);
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "stp", 3, 0, f_stp, NULL, NULL);
+#+END_SRC
+** end (end)
+#+NAME: words
+#+BEGIN_SRC c
+static int f_end(gest_d *g, int argc, char *argv[], void *ud)
+{
+    return gest_end(g);
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "end", 3, 0, f_end, NULL, NULL);
+#+END_SRC
+** loop (loopit)
+#+NAME: words
+#+BEGIN_SRC c
+static int f_loop(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_loopit(g);
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "loop", 4, 0, f_loop, NULL, NULL);
+#+END_SRC
+** fin (finish)
+#+NAME: words
+#+BEGIN_SRC c
+static int f_fin(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_finish(g);
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "fin", 3, 0, f_fin, NULL, NULL);
+#+END_SRC
+** mr (monoramp)
+** pr (polyramp)
+** lin (linear)
+** sg (smallglist)

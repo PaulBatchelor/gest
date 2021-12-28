@@ -381,7 +381,7 @@ static lil_value_t l_gest_metatarget(lil_t lil,
     int sz;
 
     core = lil_get_data(lil);
-    SKLIL_ARITY_CHECK(lil, "gest_target", argc, 1);
+    SKLIL_ARITY_CHECK(lil, "gest_metatarget", argc, 1);
     rc = sk_core_generic_pop(core, (void **)&g);
     SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
 

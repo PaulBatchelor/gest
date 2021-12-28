@@ -1,0 +1,25 @@
+glang_new gl
+
+func gval {str} {
+    glang_eval [regget 0] [grab gl] $str
+}
+
+gest_new
+regset zz 0
+
+gval "beg 3 3"
+gval "t 0 stp"
+gval "t 2 stp"
+gval "t 11 stp"
+gval "end loop fin"
+#glang_load [regget 0] [grab gl] "score.txt"
+
+regget 0
+phasor 3 0
+gesticulate zz zz
+add zz 60
+mtof zz
+blsquare zz
+mul zz 0.3
+wavout zz test.wav
+computes 10
