@@ -1,0 +1,46 @@
+func note {n} {
+    gest_target $n
+    gest_smallgliss
+}
+
+gest_new
+dup
+
+gest_begin 1 1
+    note 14
+gest_end
+
+gest_metaphrase 3
+gest_mark
+gest_begin 3 3
+    note 0
+    note 2
+    note 4
+gest_end
+gest_begin 3 3
+    note 2
+    note 4
+    note 5
+gest_end
+gest_begin 3 3
+    note 4
+    note 5
+    note 7
+gest_end
+
+gest_return 3
+
+gest_begin 3 1
+    note 12
+gest_end
+
+gest_loopit
+gest_finish
+phasor 5 0
+gesticulate zz zz
+add zz 60
+mtof zz
+blsaw zz
+butlp zz 1000
+verify 396920280587b739c2d31d289f61cd5e
+

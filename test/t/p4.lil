@@ -1,0 +1,46 @@
+func seq {} {
+    gest_new
+    dup
+    gest_begin 3 3
+
+    gest_polyramp 2
+        gest_target 64
+        gest_step
+        gest_polyramp 2
+            gest_target 66
+            gest_step
+            gest_target 67
+            gest_step
+
+    gest_target 69
+    gest_step
+
+    gest_polyramp 3
+        gest_target 72
+        gest_step
+        gest_target 71
+        gest_step
+        gest_polyramp 2
+            gest_target 62
+            gest_step
+            gest_target 63
+            gest_step
+
+    gest_end
+    gest_loopit
+    gest_finish
+    regget 0
+    gesticulate zz zz
+}
+
+phasor 1.5 0
+hold zz
+regset zz 0
+
+blsaw [mtof [seq]]
+mul zz 0.8
+valp1 zz 300
+
+regget 0
+unhold zz
+verify 652d489397b29d47e751551e810009c6

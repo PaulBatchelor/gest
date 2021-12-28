@@ -1,0 +1,73 @@
+func seq {} {
+    regget 1
+    dup
+    gest_begin 3 3
+    gest_monoramp 2
+        gest_polyramp 5
+            gest_target 64
+            gest_step
+            gest_target 66
+            gest_step
+            gest_target 67
+            gest_step
+            # decrease mass and increase inertia
+            gest_inertia 0.5
+            gest_mass -90
+            gest_target 69
+            gest_step
+            gest_target 62
+            gest_step
+
+            # reset inertia
+            gest_inertia 0
+            gest_mass 0
+
+    gest_polyramp 2
+        gest_target 71
+        gest_step
+        gest_target 72
+        gest_step
+
+    gest_end
+    gest_loopit
+    gest_finish
+    regget 0
+    gesticulate zz zz
+}
+
+func expression {} {
+    gest_new
+    dup
+    gest_begin 3 2
+    gest_target 0
+    gest_target 1
+    gest_loopit
+    gest_finish
+    regget 0
+    gesticulate zz zz
+}
+
+gest_new
+regset zz 1
+
+regget 1
+gestweight zz
+mul zz 0.7
+add zz 1.5
+phasor zz 0
+hold zz
+regset zz 0
+
+expression
+hold zz
+regset zz 2
+
+blsaw [mtof [add [seq] [sine [param 6] [mul [regget 2] 0.1]]]]
+mul zz [scale [regget 2] 0.5 0.8]
+valp1 zz [scale [regget 2] 300 800]
+
+regget 0
+unhold zz
+regget 2
+unhold zz
+verify ce2a426c596b120961d116299754491b

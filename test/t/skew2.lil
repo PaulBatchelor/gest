@@ -1,0 +1,66 @@
+phasor 1 0
+hold zz
+regset zz 0
+
+gest_new
+dup
+gest_begin 4 16
+gest_skewexp 1
+
+gest_target 0
+gest_step
+gest_target 2
+gest_step
+gest_target 4
+gest_step
+gest_target 7
+gest_step
+
+gest_target 0
+gest_step
+gest_target 2
+gest_step
+gest_target 4
+gest_step
+gest_target 7
+gest_step
+
+gest_target 0
+gest_step
+gest_target 2
+gest_step
+gest_target 4
+gest_step
+gest_target 7
+gest_step
+
+gest_target 0
+gest_step
+gest_target 2
+gest_step
+gest_target 4
+gest_step
+gest_target 7
+gest_step
+
+gest_end
+
+gest_loopit
+gest_finish
+
+regget 0
+gesticulate zz zz
+
+add zz 60
+mtof zz
+
+blsaw zz
+
+butlp zz 1000
+mul zz 0.3
+
+regget 0
+unhold zz
+
+verify 345ae2a66e52392091ddc72f340db723
+

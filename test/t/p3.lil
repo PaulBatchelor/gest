@@ -1,0 +1,30 @@
+func seq {} {
+    gest_new
+    dup
+    gest_begin 3 3
+
+    gest_monoramp 2
+        gest_target 64
+        gest_step
+
+    gest_target 62
+    gest_step
+
+    gest_end
+    gest_loopit
+    gest_finish
+    regget 0
+    gesticulate zz zz
+}
+
+phasor 1.5 0
+hold zz
+regset zz 0
+
+blsaw [mtof [seq]]
+mul zz 0.8
+valp1 zz 300
+
+regget 0
+unhold zz
+verify a9db3f51480d26840f8a86b15b5d849a

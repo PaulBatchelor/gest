@@ -47,5 +47,4 @@ mul zz 0.6
 
 regget 2
 unhold
-wavout zz gestlang.wav
-computes 10
+verify 14fab021d4a6a07dba7d37ecd5a2f96f

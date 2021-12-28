@@ -1,0 +1,67 @@
+func sequence {} {
+    regget 1
+    dup
+    gest_begin 3 3
+    gest_target 0
+    gest_smallgliss
+    gest_inertia 0.3
+
+    gest_metanode 1 3
+        gest_randnode
+        gest_target 7
+        gest_smallgliss
+        gest_mass -60
+
+        gest_polyramp 2
+            gest_target 2
+            gest_smallgliss
+            gest_mass 0
+            gest_target 4
+            gest_gliss
+        gest_polyramp 4
+            gest_target 4
+            gest_smallgliss
+            gest_mass 15
+            gest_target 7
+            gest_smallgliss
+            gest_monoramp 2
+            gest_target 9
+            gest_gliss
+
+    gest_target 14
+    gest_metabehavior 2
+        gest_randbehavior
+        gest_mediumgliss
+        gest_gliss
+
+    gest_end
+    gest_loopit
+    gest_finish
+    regget 0
+    gesticulate zz zz
+}
+
+gest_new
+regset zz 1
+
+
+regget 1
+gestweight zz
+mul zz 0.8
+add zz 2.3
+
+phasor zz 0
+hold
+regset zz 0
+
+gensine [tabnew 8192]
+
+mtof [add [sequence] 60]
+fmpair zz zz [param 1] [param 1] [param 1] [param 0]
+mul zz 0.5
+
+verify 707f77b26a21faab770158c49e1145eb
+
+regget 0
+unhold zz
+

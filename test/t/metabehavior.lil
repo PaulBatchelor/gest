@@ -1,0 +1,50 @@
+func sequence {} {
+    regget 1
+    dup
+    gest_begin 1 2
+    gest_target 0
+    gest_metabehavior 7
+        gest_randbehavior
+        gest_step
+        gest_smallgliss
+        gest_mediumgliss
+        gest_gliss
+        gest_linear
+        gest_metabehavior 2
+            gest_exponential 3
+            gest_exponential -10
+        gest_bezier 0.2 0.5
+
+    gest_target 7
+    gest_smallgliss
+    gest_end
+    gest_loopit
+    gest_finish
+    regget 0
+    gesticulate zz zz
+}
+
+gest_new
+regset zz 1
+
+
+regget 1
+gestweight zz
+mul zz 0.8
+add zz 1
+
+phasor zz 0
+hold
+regset zz 0
+
+gensine [tabnew 8192]
+
+mtof [add [sequence] 60]
+fmpair zz zz [param 1] [param 1] [param 1] [param 0]
+mul zz 0.5
+
+verify 8f11c4059fcf357b6c9f07ff4fb984aa
+
+regget 0
+unhold zz
+

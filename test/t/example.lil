@@ -1,0 +1,221 @@
+func mkgesture {} {
+    set lo [expr 60 - 12]
+    set hi [expr 72 - 12]
+    set mid [expr 62 - 12]
+
+    gest_begin 3 3
+    gest_polyramp 2
+    gest_target $hi
+    gest_target $lo
+
+    gest_target $mid
+
+    gest_polyramp 3
+    gest_target $lo
+    gest_target $hi
+    gest_target $lo
+    gest_exponential 2
+    gest_end
+}
+
+func polyramptest {} {
+    set base [expr 67 - 24]
+    set s [list 0 2 3 7 11 12]
+    gest_begin 3 3
+
+    gest_polyramp 2
+    gest_target [expr [index $s 0] + $base]
+
+    gest_polyramp 5
+    gest_smallgliss
+    gest_target [expr [index $s 2] + $base]
+    gest_smallgliss
+    gest_target [expr [index $s 0] + $base]
+    gest_smallgliss
+    gest_target [expr [index $s 1] + $base]
+    gest_smallgliss
+    gest_target [expr [index $s 2] + $base]
+    gest_smallgliss
+    gest_target [expr [index $s 3] + $base]
+    gest_smallgliss
+
+    gest_monoramp 2
+    gest_polyramp 3
+    gest_target [expr [index $s 5] + $base]
+    gest_smallgliss
+
+    gest_polyramp 2
+    gest_target [expr [index $s 0] + $base]
+    gest_smallgliss
+    gest_target [expr [index $s 4] + $base]
+    gest_smallgliss
+
+    gest_target [expr [index $s 2] + $base]
+    gest_exponential -3
+
+    gest_end
+}
+
+func nested_polyramps {} {
+    gest_begin 3 3
+    gest_target 60
+    gest_step
+
+    gest_polyramp 2
+        gest_target 63
+        gest_smallgliss
+        gest_polyramp 2
+        gest_target 67
+        gest_smallgliss
+        gest_target 63
+        gest_smallgliss
+
+    gest_target 68
+    gest_gliss
+    gest_end
+}
+
+func weighttest {} {
+    set base [expr 67 - 12]
+    set s [list 0 2 3 7 11 12]
+    gest_begin 3 3
+
+    gest_polyramp 2
+    gest_target [expr [index $s 0] + $base - 24]
+
+    gest_mass 0
+    gest_inertia 0
+    gest_polyramp 5
+    gest_gliss
+    gest_target [expr [index $s 2] + $base]
+    gest_mass 30
+    gest_inertia 0
+    gest_gliss
+
+    gest_target [expr [index $s 0] + $base]
+    gest_gliss
+    gest_target [expr [index $s 1] + $base]
+    gest_gliss
+    gest_mass -120
+    gest_inertia 0.005
+
+    gest_target [expr [index $s 2] + $base]
+    gest_gliss
+    gest_target [expr [index $s 3] + $base]
+    gest_gliss
+
+    gest_monoramp 2
+    gest_polyramp 3
+    gest_target [expr [index $s 5] + $base]
+    gest_mass 30
+    gest_inertia 0.01
+    gest_gliss
+
+    gest_polyramp 2
+    gest_target [expr [index $s 0] + $base]
+    gest_gliss
+    gest_target [expr [index $s 4] + $base]
+    gest_gliss
+    gest_mass 0
+
+    gest_target [expr [index $s 2] + $base]
+
+    gest_end
+}
+
+func expression_none {} {
+    gest_begin 3 3
+    gest_monoramp 2
+    gest_target 0
+    gest_exponential 3
+    gest_target 0.0
+    gest_step
+    gest_end
+}
+
+func expression_mid {} {
+    gest_begin 3 3
+    gest_monoramp 2
+    gest_target 0
+    gest_exponential 3
+    gest_target 0.5
+    gest_step
+    gest_end
+}
+
+func expression_hi {} {
+    gest_begin 3 3
+    gest_monoramp 2
+    gest_target 0
+    gest_exponential 3
+    gest_target 1
+    gest_gliss
+    gest_end
+}
+
+regset [gest_new] 1
+
+param 60
+gestweight [regget 1]
+mul zz 25
+add zz zz
+
+mul zz [expr 1.0 / 60]
+phasor zz 0
+hold zz
+regset zz 0
+
+regget 1
+dup
+mkgesture
+polyramptest
+nested_polyramps
+weighttest
+
+gest_loopit
+gest_finish
+
+regget 0
+gesticulate zz zz
+
+gest_new
+dup
+expression_none
+expression_mid
+expression_hi
+expression_hi
+gest_loopit
+gest_finish
+regget 0
+gesticulate zz zz
+hold zz
+regset zz 3
+
+
+sine [scale [regget 3] 6 7] [scale [regget 3] 0 0.4]
+add zz zz
+mtof zz
+
+glottis zz 0.9
+tractxy zz [rline 0.01 0.9 4] [rline 0.01 0.7 3]
+valp1 zz 5000
+
+mul zz 0.8
+
+dup
+mul zz [scale [regget 3] 0.1 1]
+dup
+
+bigverb zz zz 0.97 9000
+drop
+dcblocker zz
+mul zz 0.2
+
+add zz zz
+
+verify 1425d6ad41f01c0b244ac153dd25f794
+
+regget 0
+unhold zz
+regget 3
+unhold zz

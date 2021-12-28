@@ -1,0 +1,60 @@
+func ramp {} {
+    gest_target 0
+    gest_linear
+    gest_ramp
+}
+
+func invramp {} {
+    gest_target 0
+    gest_linear
+    gest_invramp
+}
+
+gest_new
+dup
+
+gest_begin 4 4
+ramp
+gest_polyramp 2
+  ramp
+  invramp
+ramp
+gest_polyramp 3
+  ramp
+  ramp
+  ramp
+gest_end
+
+gest_begin 4 4
+  ramp
+  gest_biramp 0.1
+  ramp
+  gest_biramp 0.5
+  gest_polyramp 2
+    ramp; gest_biramp 0.1
+    ramp; gest_biramp 0.1
+  ramp
+  gest_biramp 0.9
+gest_end
+
+gest_begin 4 4
+  ramp
+  gest_gate 0.5
+  ramp
+  gest_gate 0.1
+  ramp
+  gest_gate 0.9
+  ramp
+  gest_gate 0.01
+gest_end
+
+gest_loopit
+gest_finish
+phasor 1.5 0
+gesticulate zz zz
+scale zz 300 500
+blsaw zz
+butlp zz 300
+mul zz 0.5
+verify 5fa09a47d8450fa79ae596b829bc17b4
+

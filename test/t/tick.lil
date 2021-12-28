@@ -1,0 +1,40 @@
+# using a scalar as a tick signal
+# this discards values and just ticks
+# when gest sets the scalar (it can be
+# the same value).
+
+# scalar instance needs to be
+# created before gesture is populated
+gest_scalarnew
+regset zz 0
+
+func tick {} {
+    gest_target 0
+    gest_step
+    gest_setscalar [regget 0] 1
+}
+
+gest_new
+dup
+gest_begin 3 3
+tick
+tick
+gest_polyramp 2
+    tick
+    gest_polyramp 3
+        tick; tick; tick
+gest_end
+gest_loopit
+gest_finish
+phasor [expr 135 / 60] 0
+gesticulate zz zz
+
+# discard unused gesture value
+drop
+
+env [gestick [regget 0]] 0.001 0.01 0.01
+sine 1000 0.5
+mul zz zz
+
+verify e1df557b793a31dcbbdf6c3771081e00
+

@@ -1,0 +1,27 @@
+func seq {} {
+gest_new
+dup
+gest_begin 3 3
+gest_target 64
+gest_target 67
+gest_target 60
+gest_end
+gest_loopit
+gest_finish
+regget 0
+gesticulate zz zz
+}
+
+phasor 1.5 0
+hold zz
+regset zz 0
+
+blsaw [mtof [seq]]
+mul zz 0.8
+valp1 zz 300
+
+
+regget 0
+unhold zz
+
+verify 77b548db935899d8e70270cf6ca5d1a7

@@ -1,0 +1,768 @@
+# synthwave
+# by patchlore
+# september 2021
+
+# Helper Functions
+
+# copies a signal to a cable and stores it in a register
+func mkcab {} {
+    cabnew zz
+    set nxt [regnxt 0]
+    hold
+    regset zz $nxt
+    regmrk $nxt
+    return $nxt
+}
+
+# clears a cable in a register
+func cabclr {reg} {
+    regget $reg
+    unhold zz
+    regclr $reg
+}
+
+# create a trigger in a gesture
+func hit {tk} {
+    gest_target 1
+    gest_step
+    gest_setscalar [regget $tk] 1
+}
+
+# creates a rest in a gesture
+func rest {} {
+    gest_target 0
+    gest_step
+}
+
+# abbreviations for programming gestures
+func beg {nb dv} {gest_begin $nb $dv}
+func end {} {gest_end}
+func fin {} {gest_finish}
+func loop {} {gest_loopit}
+func pr {n} {gest_polyramp $n}
+func tr {val} {gest_target $val}
+func mt {sz} {gest_metatarget $sz}
+func sg {} {gest_smallgliss}
+func gl {} {gest_gliss}
+func mg {} {gest_mediumgliss}
+func mr {n} {gest_monoramp $n}
+func exp {slp} {gest_exponential $slp}
+func stp {} {gest_step}
+func rpt {n} {gest_repeat $n}
+func rtn {n} {gest_return $n}
+func mrk {} {gest_mark}
+func scl {r x} {gest_setscalar [regget $r] $x}
+func mn {nb sz} {gest_metanode $nb $sz}
+
+# This is the global key that all sequences use
+set key 39
+
+# Gestures/Sequences
+
+func kik_seq {phs} {
+    set tk [regnxt 0]
+    regset [gest_scalarnew] $tk
+    regmrk $tk
+
+    gest_new
+    dup
+    beg 4 4
+        hit $tk
+        hit $tk
+        hit $tk
+        hit $tk
+    end
+    loop
+    fin
+    $phs
+    gesticulate zz zz
+    drop
+
+    gestick [regget $tk]
+
+    regclr $tk
+}
+
+func snare_seq {phs} {
+    set tk [regnxt 0]
+    regset [gest_scalarnew] $tk
+    regmrk $tk
+
+    gest_new
+    dup
+    beg 4 4
+        rest
+        hit $tk
+        rest
+        hit $tk
+    end
+    loop
+    fin
+    $phs
+    gesticulate zz zz
+    drop
+
+    gestick [regget $tk]
+
+    regclr $tk
+}
+
+func hh_seq {phs} {
+    set tk [regnxt 0]
+    regset [gest_scalarnew] $tk
+    regmrk $tk
+
+    gest_new
+    dup
+    beg 4 8
+        rest
+        hit $tk
+        rest
+        hit $tk
+        rest
+        hit $tk
+        rest
+        pr 2
+        hit $tk
+        hit $tk
+    end
+    loop
+    fin
+    $phs
+    gesticulate zz zz
+    drop
+
+    gestick [regget $tk]
+
+    regclr $tk
+}
+
+func bass_seq {phs} {
+    gest_new
+    dup
+
+# Intro riff and main section
+    beg 16 4
+    rpt [expr 2 + 4]
+        tr 0; gl
+        tr 3; sg
+        tr -4; sg
+        mt 2; tr -7; sg; tr 5; sg
+    end
+
+# Interlude. Bass riff
+    beg 16 32
+    rpt 2
+        mr 3; tr 0; gl
+        mr 3; tr -4; gl
+        mr 3; tr -7; gl
+        mr 7; tr -11; gl
+
+        mr 3; tr 0; gl
+        mr 3; tr -4; gl
+        mr 10; mt 2; tr -2; gl; tr -7; gl;
+    end
+
+# Main Section 2
+    beg 16 4
+    rpt 2
+        tr 0; gl
+        tr 3; sg
+        tr -4; sg
+        mt 2; tr -7; sg; tr 5; sg
+    end
+
+# Interlude
+    beg 16 32
+    rpt 4
+        mr 3; tr 0; gl
+        mr 3; tr -4; gl
+        mr 3; tr -7; gl
+        mr 7; tr -11; gl
+
+        mr 3; tr 0; gl
+        mr 3; tr -4; gl
+        mr 10; mt 2; tr -2; gl; tr -7; gl;
+    end
+
+# Outro
+    beg 16 4
+    rpt 4
+        tr 0; gl
+        tr -12; gl
+        tr 0; gl
+        tr -12; gl
+    end
+
+    loop; fin
+    $phs
+    gesticulate zz zz
+    smoother zz 0.01
+}
+
+func bass_expr {phs} {
+    gest_new
+    dup
+
+# Intro
+    beg 16 2
+    rpt 2
+    tr 1
+    tr 1.8
+    end
+
+# A section
+    beg 16 2
+    rpt 4
+    tr 1
+    tr 1.8
+    end
+
+# Interlude
+    beg 16 2
+    rpt 2
+    tr 1
+    tr 1.8
+    end
+
+# A Section
+    beg 16 2
+    rpt 2
+    tr 1
+    tr 1.8
+    end
+
+# Interlude
+    beg 16 2
+    rpt 4
+    tr 1
+    tr 1.8
+    end
+
+# Outro (Gets fun here)
+    beg 32 2
+    rpt 2
+    tr 5 exp 3
+    tr 1
+    end
+
+    loop
+    fin
+    $phs
+    gesticulate zz zz
+}
+
+func lead_seq {phs gt} {
+    gest_new
+    dup
+
+# intro
+    beg 32 1
+    tr 0; stp
+    scl $gt 0
+    end
+
+# Melody part 1
+    beg 4 4; mrk
+        tr 15; mg
+        scl $gt 1
+
+        mr 2; pr 4
+        tr 7; mg
+        mr 2
+        tr 14; gl
+
+        tr 7; mg
+
+        tr 12; gl
+    end
+
+    beg 4 8
+        mr 3
+        tr 10; mg
+        mr 3
+        mt 2; tr 8; mg; tr 12; gl
+        mr 2
+        tr 0; mg
+    end
+
+    beg 8 4
+        mr 2
+        tr 7; mg
+        mr 2
+        mt 2; tr 5; gl; tr 10; gl
+    end
+
+    rtn 4
+
+# Interlude
+    beg 16 4
+        rpt 2
+        tr 0; stp
+        scl $gt 0
+        tr 0; stp
+        tr 0; stp
+        tr 0; stp
+    end
+
+# Melody part 2
+    beg 4 4; mrk
+        tr 15; mg
+        scl $gt 1
+
+        mr 2; pr 4
+        tr 7; mg
+        mr 2
+        tr 14; gl
+
+        tr 7; mg
+
+        pr 4;
+        tr 12; mg
+        mr 2
+        tr 10; mg
+        tr 7; gl
+    end
+
+    beg 4 8
+        mr 3; tr 10; mg
+        mr 3; mt 2
+            tr 8; mg;
+            tr 12; gl
+        mr 2; tr 0; mg
+    end
+
+    beg 8 4
+        mr 2
+        tr 7; mg
+        mn 2 2
+            pr 4
+            mr 3
+            tr 5; gl
+            pr 4
+            tr 7; sg
+            tr 15; sg
+            tr 14; sg
+            tr 12; gl
+
+            tr 10; gl
+    end
+
+    rtn 2
+
+# Interlude 2: SPACE SYNTH SOLO!!
+
+    beg 16 2
+        tr 12; gl
+        pr 8
+        mr 7; tr 0; sg
+        pr 4
+        tr 3; mg
+        tr 2; mg
+        tr -2; gl
+        tr 0; mg
+    end
+
+    beg 16 4
+        tr 0; gl
+        tr 19; stp
+        scl $gt 0
+        tr 0; stp
+
+        pr 4
+        mr 3; tr 0; stp
+        pr 6
+            tr -7; mg
+            scl $gt 1
+            tr -4; mg
+            tr 0; mg
+            tr 5; mg
+            tr 8; mg
+            tr 12; gl
+    end
+
+# Recapitulation
+
+    beg 8 16
+        mr 2; tr 15; mg
+        tr 8; mg
+        mr 2; tr 12; mg
+        tr 5; mg
+        mr 2; tr 8; mg
+        tr 10; mg
+        mr 7; tr 12; mg
+    end
+
+
+    beg 8 16
+        mr 2; tr 15; mg
+        tr 8; mg
+        mr 2; tr 12; mg
+        tr 5; mg
+        mr 2; tr 8; mg
+        tr 10; mg
+        mr 7; tr 5; gl
+    end
+
+    beg 8 16
+        tr 20; mg
+        tr 19; mg
+        tr 17; mg
+
+        mr 2; tr 12; mg
+        tr 5; mg
+        mr 2; tr 8; mg
+        tr 10; mg
+        mr 5; tr 15; gl
+
+        mr 2; pr 6
+            tr 14; mg
+            tr 15; mg
+            tr 17; mg
+            tr 15; mg
+            tr 17; mg
+            tr 19; mg
+    end
+
+    beg 8 16
+        tr 20; mg
+        tr 19; mg
+        tr 17; mg
+
+        mr 2; tr 12; mg
+        tr 5; mg
+        mr 2; tr 8; mg
+        tr 10; mg
+        mr 7; tr 15; gl
+    end
+
+
+# Outro
+    beg 16 4
+        tr 12; stp
+        tr 0; stp
+        scl $gt 0
+        tr 0; stp
+        tr 0; stp
+    end
+
+    beg 16 4
+        rpt 3
+        tr 0; stp
+        tr 0; stp
+        tr 0; stp
+        tr 0; stp
+    end
+
+    loop; fin
+
+    $phs
+    gesticulate zz zz
+}
+
+func lead_vib {phs} {
+    gest_new
+    dup
+    beg 8 8
+        mr 4; tr 0
+        mr 4; tr 0.15
+    end
+
+    beg 8 8
+        mr 6; tr 0; exp 2
+        mr 2; tr 0.4; stp
+    end
+    loop; fin
+    $phs
+    gesticulate zz zz
+}
+
+func lead_pdamt {phs} {
+    gest_new
+    dup
+    beg 8 8
+        mr 4
+        tr 0.4
+        mr 4
+        tr 0.7
+    end
+
+    beg 8 8
+        mr 4
+        tr 0.6; exp 3
+        mr 4
+        tr 0.95; stp
+    end
+    loop; fin
+
+    $phs
+    gesticulate zz zz
+}
+
+func lead_delay {phs} {
+    gest_new
+    dup
+
+    beg 16 16; mrk
+        mr 12; tr 0.0; exp 3
+        mr 4; tr 0.9; stp
+    end
+
+    # repeat this until the outro and then leave it on
+    # phrase is 4 bars, so divide by 4 here
+    rtn [expr (8 + 16 + 8 + 8) / 4]
+
+    beg 16 1;
+        tr 0.9; stp
+    end
+    fin
+
+    $phs
+    gesticulate zz zz
+}
+
+func fade {phs} {
+    gest_new
+    dup
+    beg 4 1
+        # intro AA B A BB OUT(half)
+        rpt [expr 8 + 16 + 8 + 8 + 16 + 8]
+        tr 1; stp
+    end
+
+# last 8 of outro gets faded out
+    beg 16 3
+        mr 2; tr 1
+        tr 0
+    end
+
+    fin
+
+    $phs
+
+    gesticulate zz zz
+}
+
+# Sounds
+
+func hh {phs} {
+    hh_seq $phs
+    set clk [mkcab]
+    env [regget $clk] 0.001 0.01 0.01
+    mul [noise] 0.25
+    butlp zz 4000
+    buthp zz 8000
+    mul zz zz
+    cabclr $clk
+}
+
+func snare {phs} {
+    snare_seq $phs
+    set clk [mkcab]
+
+    regget $clk
+    env zz 0.001 0.07 0.07
+    mul [noise] 0.1
+    butlp zz 5000
+    peakeq zz 8000 8000 2
+    peakeq zz 200 1000 5
+    buthp zz 200
+    mul zz zz
+
+    dup
+    dup dup
+    verbity zz zz 0.9 0.9 0.2
+    drop
+    dcblocker zz
+    regget $clk
+    env zz 0.001 0.08 0.2
+    mul zz zz
+    mul zz 0.8
+    add zz zz
+
+    cabclr $clk
+}
+
+func lead {phs} {
+    set gate [regnxt 0]
+    regset [gest_scalarnew] $gate
+    regmrk $gate
+
+    lead_seq $phs $gate
+    set seq [mkcab]
+
+    lead_vib $phs
+    set vib [mkcab]
+
+    lead_pdamt $phs
+    set pdamt [mkcab]
+
+    lead_delay $phs
+    set del [mkcab]
+
+    gensine [tabnew 8192]
+
+    add [regget $seq] [expr $key + 24]
+    sine [param 6.5] [regget $vib]
+    add zz zz
+    rline [param -0.01] [param 0.01] [rline 0.8 2 1]
+    add zz zz
+    mtof zz
+    phasor zz 0
+    phasewarp zz [regget $pdamt]
+    oscfext zz zz
+    mul zz 0.3
+    gescalar [regget $gate]
+    smoother zz 0.001
+    mul zz zz
+
+    chorus zz 1.6 0.02 0.4 0.1
+    dcblocker zz
+    peakeq zz 5000 5000 2
+    buthp zz 500
+
+    butlp zz 5000
+
+    dup
+    mul zz [regget $del]
+    vardelay zz 0.83 [expr (60 / 96) * 0.75] 1.0
+    butlp zz 5000
+    buthp zz 1000
+    add zz zz
+
+    dup; dup
+    bigverb zz zz 0.97 10000
+    drop
+    mul zz 0.15
+    add zz zz
+    dcblocker zz
+
+    buthp zz 300
+
+    cabclr $seq
+    cabclr $vib
+    cabclr $pdamt
+    cabclr $del
+    regclr $gate
+}
+
+func kik {phs} {
+    kik_seq $phs
+    set clk [mkcab]
+
+    # body of the drum
+
+    # sine table, first argument for oscext, pushed onto stack
+    gensine [tabnew 8192]
+
+    # exponential frequency
+    regget $clk
+    dup
+    expon zz 1 0.1 0.001
+    scale zz 60 500
+
+    # phasor with phase distortion to add some grit
+    # this becomes the second argument
+    tphasor zz zz 0
+    phasewarp zz 0.2
+
+    # the oscillator, oscf
+    oscfext zz zz
+    mul zz 0.5
+
+    regget $clk
+    env zz 0.001 0.01 0.1
+    mul zz zz
+
+    # click
+    regget $clk
+    # an impulse fed through a modal resonator
+    # creates an exponentially decaying sinusoid
+    # a better sounding click than just an impulse
+    # that can also be tuned
+    modalres zz 3000 3
+    add zz zz
+
+    mul zz 0.8
+    return $clk
+}
+
+func mksawft {} {
+    set ft [regnxt 0]
+    regset [gensaw [tabnew 8192]] $ft
+    regmrk $ft
+    return $ft
+}
+
+func bass {phs} {
+    bass_seq $phs
+    set seq [mkcab]
+
+    bass_expr $phs
+    set exp [mkcab]
+    set ft [mksawft]
+    env [phsclk [$phs] 4] 0.001 0.01 0.12
+
+
+    regget $ft
+    phasor [mtof [add [regget $seq] $key]] 0
+    mul zz [regget $exp]
+    oscfext zz zz
+
+    regget $ft
+    phasor [mtof [add [regget $seq] [expr $key - 11.8]]] 0
+    mul zz [regget $exp]
+    oscfext zz zz
+    add zz zz
+
+    regget $ft
+    phasor [mtof [add [regget $seq] [expr $key + 11.9]]] 0
+    mul zz [regget $exp]
+    oscfext zz zz
+
+    add zz zz
+    mul zz 0.3
+
+    chorus zz 1.0 0.5 0.02 0.1
+    dcblocker zz
+
+    butlp zz 2000
+    butlp zz 1000
+    mul zz zz
+
+    cabclr $seq
+    cabclr $exp
+    regclr $ft
+}
+
+hold [phasor [expr 96 / 60] 0]
+regset zz 0
+regmrk 0
+
+set phs [func {} {regget 0}]
+
+set kc [kik $phs]
+
+bass $phs
+scale [env [regget $kc] 0.008 0.1 0.1] 1 0.1
+mul zz zz
+add zz zz
+cabclr $kc
+
+snare $phs
+add zz zz
+hh $phs
+add zz zz
+
+lead $phs
+add zz zz
+
+fade $phs
+
+mul zz zz
+
+dup
+
+verify 08cafff0bd917b27b12d2ed50f3096ab
+
+cabclr 0

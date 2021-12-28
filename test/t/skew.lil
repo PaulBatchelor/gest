@@ -1,0 +1,110 @@
+phasor 1 0
+hold zz
+regset zz 0
+
+gest_new
+dup
+gest_begin 4 4
+gest_skewexp 1
+
+gest_monoramp 2
+gest_polyramp 4
+gest_target 2
+gest_smallgliss
+gest_target 0
+gest_smallgliss
+gest_target 4
+gest_smallgliss
+gest_target 2
+gest_smallgliss
+
+gest_target 0
+gest_smallgliss
+
+gest_polyramp 2
+gest_target 2
+gest_smallgliss
+gest_target 4
+gest_smallgliss
+gest_end
+
+gest_loopit
+gest_finish
+
+regget 0
+gesticulate zz zz
+
+add zz 67
+mtof zz
+
+blsaw zz
+
+gest_new
+dup
+gest_begin 4 16
+gest_skewexp 1
+
+gest_target 4
+gest_smallgliss
+gest_target 7
+gest_smallgliss
+gest_target 12
+gest_smallgliss
+gest_target 14
+gest_smallgliss
+
+gest_target 4
+gest_smallgliss
+gest_target 7
+gest_smallgliss
+gest_target 12
+gest_smallgliss
+gest_target 14
+gest_smallgliss
+
+gest_target 4
+gest_smallgliss
+gest_target 7
+gest_smallgliss
+gest_target 12
+gest_smallgliss
+gest_target 14
+gest_smallgliss
+
+gest_target 4
+gest_smallgliss
+gest_target 7
+gest_smallgliss
+gest_target 12
+gest_smallgliss
+
+gest_polyramp 2
+gest_target 0
+gest_smallgliss
+gest_target 2
+gest_smallgliss
+
+gest_end
+
+gest_loopit
+gest_finish
+
+regget 0
+gesticulate zz zz
+
+add zz 43
+mtof zz
+
+blsaw zz
+
+add zz zz
+
+
+butlp zz 1000
+mul zz 0.3
+
+regget 0
+unhold zz
+
+verify 307dd10f24fc72ceb4fd33533b272972
+
