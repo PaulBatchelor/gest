@@ -5,10 +5,13 @@ func gval {str} {
 }
 
 gestcnd 110
+#phasor [expr 110 / 60] 0
 hold zz
 regset zz 2
 
 gest_new
+#gest_squawk 1
+#gest_tolerance 0.0015
 regset zz 0
 
 gval "beg 4 4"
@@ -25,13 +28,19 @@ mtof zz
 blsquare zz
 
 gest_new
+gest_squawk 2
+#gest_tolerance 0.0015
 regset zz 0
 gval "beg 6 2"
-gval "t 300 lin"
-gval "t 2000 lin"
+gval "t 0 lin"
+gval "t 1 lin"
 gval "end loop fin"
 
 gesticulate [regget 0] [regget 2]
+dup
+wavout zz sig.wav
+scale zz 300 2000
+#smoother zz 0.001
 butlp zz zz
 
 mul zz 0.6

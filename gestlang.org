@@ -740,6 +740,24 @@ gestlang_add(glang, "gl", 2, 0, f_gl, NULL, NULL);
 ** grw (grow)
 ** smo (smoothstep)
 ** rmp (ramp)
+Usage: rmp
+
+Sets the currently selected target to output the underlying
+ramp, rather than using it to interpolate between targets.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_rmp(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_ramp(g);
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "rmp", 3, 0, f_rmp, NULL, NULL);
+#+END_SRC
 ** irmp (invramp)
 ** br (biramp)
 ** gt (gate)

@@ -989,6 +989,50 @@ static lil_value_t l_gestcnd(lil_t lil,
     return NULL;
 }
 
+static lil_value_t l_gest_squawk(lil_t lil,
+                                 size_t argc,
+                                 lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+    int squawk;
+
+    SKLIL_ARITY_CHECK(lil, "gest_squawk", argc, 1);
+
+    core = lil_get_data(lil);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+    squawk = lil_to_integer(argv[0]);
+    gest_squawk(g, squawk);
+
+    sk_core_generic_push(core, g);
+    return NULL;
+}
+
+static lil_value_t l_gest_tolerance(lil_t lil,
+                                    size_t argc,
+                                    lil_value_t *argv)
+{
+    sk_core *core;
+    gest_d *g;
+    int rc;
+    SKFLT tol;
+
+    SKLIL_ARITY_CHECK(lil, "gest_tolerance", argc, 1);
+
+    core = lil_get_data(lil);
+    rc = sk_core_generic_pop(core, (void **)&g);
+    SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
+
+    tol = lil_to_double(argv[0]);
+    gest_tolerance(g, tol);
+
+    sk_core_generic_push(core, g);
+    return NULL;
+}
+
 void sklil_load_gest(lil_t lil)
 {
     lil_register(lil, "gest_new", gest_new);
@@ -1037,4 +1081,6 @@ void sklil_load_gest(lil_t lil)
     lil_register(lil, "gest_biramp", l_gest_biramp);
     lil_register(lil, "gest_gate", l_gest_gate);
     lil_register(lil, "gestcnd", l_gestcnd);
+    lil_register(lil, "gest_squawk", l_gest_squawk);
+    lil_register(lil, "gest_tolerance", l_gest_tolerance);
 }

@@ -2699,6 +2699,13 @@ if (reset && g->spillover == 0) {
         if (amt > 0 && amt < g->tolerance) {
             <<turn_on_spillover>>
         } else {
+            if (g->squawk && amt > 0) {
+                fprintf(stderr, "Ramp undershot by %g\n", amt);
+                fprintf(stderr, "phase is %g\n", phs);
+            }
+
+            <<please_wait_in_undershoot>>
+
             g->beat = 0;
             g->t = 0;
             g->phs = 0;
@@ -2707,12 +2714,10 @@ if (reset && g->spillover == 0) {
             g->targetondeck = 1;
             g->phrase_selected = g->nxtstate.phrase;
 
-            if (g->squawk && amt > 0) {
-                fprintf(stderr, "Ramp undershot by %g\n", amt);
-            }
 
             /* reset if next state was told to wait */
             g->nxtstate.please_wait = 0;
+
             return phs;
         }
     }
@@ -2887,6 +2892,7 @@ g->den = 1;
 if (next != NULL) {
     next = dive_to_target(g, next);
 }
+
 please_wait = 1;
 #+END_SRC
 
@@ -3005,7 +3011,6 @@ static void find_next_node(gest_d *g,
                 break;
             } else {
                 /* go to next child in top polyramp node */
-
                 <<goto_next_child_in_top_node>>
             }
         } else if (top->next == NULL) {
@@ -3079,12 +3084,15 @@ top-level polyramp. At this point, the next phrase is found
 and set to be the beginning of that node.
 
 All ramps begin exactly at 0. When wraparound happens,
-the roundoff error is stored in the error variable.
+the roundoff error is stored in the error variable (note:
+no, it isn't. we are truncating, and I believe this is done
+to prevent certain kinds of discontinuities. There are
+checks in place for this).
 
 #+NAME: wraparound
 #+BEGIN_SRC c
 while (phs > 1) phs--;
-phs = 0;
+phs = 0; /* just kidding, truncate */
 #+END_SRC
 ** Handling Roundoff Error in Phrases
 Roundoff error is a natural part of working with floating
@@ -3172,6 +3180,8 @@ if (g->squawk) {
     fprintf(stderr, "spillover turned on\n");
 }
 g->spillover = 1;
+
+<<please_wait_in_spillover>>
 #+END_SRC
 
 The spillover flag gest turned off when the phrase has
@@ -3211,6 +3221,61 @@ if (g->please_wait && g->spillover) {
 
 In Spillover mode, beat check-in is skipped entirely;
 there is hardly a need for it, so it is ignored.
+** edge case: please_wait flag in beat check-in
+Here's a weird edge case: the phrase finishes and
+the =please_wait= flag is set one sample before the clock
+reset. When this happens, a single sample discontinuity will
+be returned. Why?
+
+When computing the ramptree, beat-checkin happens before
+the =please_wait= flag is checked. In most scenarios,
+=please_wait= is unset by the time it reaches here. But,
+because it happened exactly one sample before, the internal
+phasor value has been wrapped back to 0 from the previous
+call. This ends up returning the equivalent of target A
+instead of target B, which is wrong.
+
+To correct this, things must be configured so that the
+returned value is 1 instead of 0, based on the state of
+=please_wait= in the beat check-in when the check-in
+discovers it has started the next phrase. There are 2
+places to check the flag.
+
+The usual place is right about where gest would squawk
+about undershoot. The local variable =phs= gets set to be 1.
+After some re-init for the next node, this value of gets
+returned.
+
+#+NAME: please_wait_in_undershoot
+#+BEGIN_SRC c
+if (g->please_wait) {
+    if (g->squawk > 1) {
+        fprintf(stderr, "please_wait set in undershoot\n");
+    }
+    phs = 1.0;
+}
+#+END_SRC
+
+When the =spillover= flag gets turned on, =please_wait= will
+need to be checked too. Normally, the program is used to
+waiting a few samples before =please_wait= is set. But in
+this edge case, it will only spill over into the next
+sample.
+
+In this situation, the internal phasor value is set to be
+1.0 in addition to returning 1.0, which is needed for
+the next sample iteration.
+
+#+NAME: please_wait_in_spillover
+#+BEGIN_SRC c
+if (g->please_wait) {
+    if (g->squawk) {
+        fprintf(stderr, "spillover: please_wait already on\n");
+    }
+    g->phs = 1.0;
+    return 1.0;
+}
+#+END_SRC
 * Memory Collections
 Memory-allocated things are managed in a data type known
 as a =collection=. Data allocated in a collection can be
@@ -3989,6 +4054,19 @@ is cached in the =prevout= variable.
 
 #+NAME: update_previous_value
 #+BEGIN_SRC c
+if (g->squawk > 1) {
+    SKFLT diff;
+
+    diff = out - g->prevout;
+    if (fabs(diff) > 0.1) {
+        fprintf(stderr, "large jump: %g\n", diff);
+
+        if (reset) {
+            fprintf(stderr, "this happened at a reset.\n");
+        }
+    }
+}
+
 g->prevout = out;
 #+END_SRC
 * Metathings
