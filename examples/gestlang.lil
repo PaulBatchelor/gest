@@ -4,22 +4,40 @@ func gval {str} {
     glang_eval [regget 0] [grab gl] $str
 }
 
+gestcnd 110
+hold zz
+regset zz 2
+
 gest_new
 regset zz 0
 
-# gval "beg 3 3"
-# gval "t 0 stp"
-# gval "t 2 stp"
-# gval "t 11 stp"
-# gval "end loop fin"
-glang_load [regget 0] [grab gl] "score.txt"
+gval "beg 4 4"
+gval "nt C-4 sg"
+gval "nt D-4 sg"
+gval "nt E-4 sg"
+gval "nt G-4 mg"
+gval "end loop fin"
 
 regget 0
-phasor 3 0
+regget 2
 gesticulate zz zz
-add zz 60
 mtof zz
 blsquare zz
-mul zz 0.3
+
+gest_new
+regset zz 0
+gval "beg 6 2"
+gval "t 300 lin"
+gval "t 2000 lin"
+gval "end loop fin"
+
+gesticulate [regget 0] [regget 2]
+butlp zz zz
+
+mul zz 0.6
+
+
+regget 2
+unhold
 wavout zz gestlang.wav
 computes 10

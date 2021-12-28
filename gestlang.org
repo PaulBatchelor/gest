@@ -673,7 +673,7 @@ behavior.
 #+BEGIN_SRC c
 static int f_sg(gest_d *g, int argc, char *argv[], void *ud)
 {
-    gest_behavior_linear(g);
+    gest_behavior_smallgliss(g);
     return 0;
 }
 #+END_SRC
@@ -796,4 +796,81 @@ if (glang->comment) {
     }
     continue;
 }
+#+END_SRC
+* Note Target (nt)
+When sequencing notes, it's helpful to have an
+abstraction that converts a note name string (such as C-4)
+into a MIDI note number (60).
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static int pch2nn(const char *pch);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static int pch2nn(const char *pch)
+{
+    int nn;
+
+    nn = 0;
+
+    if (pch[0] == 0) return 0;
+
+    switch (pch[0]) {
+        case 'C':
+            nn = 0;
+            break;
+        case 'D':
+            nn = 2;
+            break;
+        case 'E':
+            nn = 4;
+            break;
+        case 'F':
+            nn = 5;
+            break;
+        case 'G':
+            nn = 7;
+            break;
+        case 'A':
+            nn = 9;
+            break;
+        case 'B':
+            nn = 11;
+            break;
+        default:
+            break;
+    }
+
+    if (pch[1] == 0) return nn;
+
+
+    if (pch[1] == '#') nn++;
+    else if (pch[1] == 'b') nn--;
+
+    if (pch[2] == 0) return nn;
+
+    nn += 12 * (1 + (pch[2] - '0'));
+
+    return nn;
+}
+#+END_SRC
+
+#+NAME: static_funcdefs
+#+BEGIN_SRC c
+static int f_nt(gest_d *g, int argc, char *argv[], void *ud);
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+static int f_nt(gest_d *g, int argc, char *argv[], void *ud)
+{
+    return gest_addtarget(g, pch2nn(argv[0]));
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "nt", 2, 1, f_nt, NULL, NULL);
 #+END_SRC
