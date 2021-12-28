@@ -474,6 +474,10 @@ void gestlang_loader(gestlang_d *glang)
 }
 #+END_SRC
 ** beg (begin)
+Usage: beg nbeats div
+
+Begins a phrase.
+
 #+NAME: words
 #+BEGIN_SRC c
 static int f_beg(gest_d *g, int argc, char *argv[], void *ud)
@@ -488,6 +492,10 @@ static int f_beg(gest_d *g, int argc, char *argv[], void *ud)
 gestlang_add(glang, "beg", 3, 2, f_beg, NULL, NULL);
 #+END_SRC
 ** t (target)
+Usage: t val
+
+Appends a target.
+
 #+NAME: words
 #+BEGIN_SRC c
 static int f_tar(gest_d *g, int argc, char *argv[], void *ud)
@@ -501,6 +509,10 @@ static int f_tar(gest_d *g, int argc, char *argv[], void *ud)
 gestlang_add(glang, "t", 1, 1, f_tar, NULL, NULL);
 #+END_SRC
 ** stp (step)
+Usage: stp
+
+Sets the current target to have step behavior.
+
 #+NAME: words
 #+BEGIN_SRC c
 static int f_stp(gest_d *g, int argc, char *argv[], void *ud)
@@ -515,6 +527,10 @@ static int f_stp(gest_d *g, int argc, char *argv[], void *ud)
 gestlang_add(glang, "stp", 3, 0, f_stp, NULL, NULL);
 #+END_SRC
 ** end (end)
+Usage: end
+
+Ends the current phrase.
+
 #+NAME: words
 #+BEGIN_SRC c
 static int f_end(gest_d *g, int argc, char *argv[], void *ud)
@@ -528,6 +544,10 @@ static int f_end(gest_d *g, int argc, char *argv[], void *ud)
 gestlang_add(glang, "end", 3, 0, f_end, NULL, NULL);
 #+END_SRC
 ** loop (loopit)
+Usage: loop
+
+Loops the gesture.
+
 #+NAME: words
 #+BEGIN_SRC c
 static int f_loop(gest_d *g, int argc, char *argv[], void *ud)
@@ -542,6 +562,10 @@ static int f_loop(gest_d *g, int argc, char *argv[], void *ud)
 gestlang_add(glang, "loop", 4, 0, f_loop, NULL, NULL);
 #+END_SRC
 ** fin (finish)
+Usage: fin
+
+Finishes up the gesture.
+
 #+NAME: words
 #+BEGIN_SRC c
 static int f_fin(gest_d *g, int argc, char *argv[], void *ud)
@@ -556,6 +580,119 @@ static int f_fin(gest_d *g, int argc, char *argv[], void *ud)
 gestlang_add(glang, "fin", 3, 0, f_fin, NULL, NULL);
 #+END_SRC
 ** mr (monoramp)
+Usage: mr nbeats
+
+Creates a monoramp.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_mr(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_monoramp(g, atoi(argv[0]));
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "mr", 2, 1, f_mr, NULL, NULL);
+#+END_SRC
 ** pr (polyramp)
+Usage: pr nbeats
+
+Creates a polyramp.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_pr(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_polyramp(g, atoi(argv[0]));
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "pr", 2, 1, f_pr, NULL, NULL);
+#+END_SRC
 ** lin (linear)
-** sg (smallglist)
+Usage: lin
+
+Sets the currently selected target to have linear
+behavior.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_lin(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_behavior_linear(g);
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "lin", 3, 0, f_lin, NULL, NULL);
+#+END_SRC
+** sg (smallgliss)
+Usage: sg
+
+Sets the currently selected target to have small glissando
+behavior.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_sg(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_behavior_linear(g);
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "sg", 2, 0, f_sg, NULL, NULL);
+#+END_SRC
+** mg (mediumgliss)
+Usage: mg
+
+Sets the currently selected target to have medium glissando
+behavior.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_mg(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_behavior_mediumgliss(g);
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "mg", 2, 0, f_mg, NULL, NULL);
+#+END_SRC
+** gl (gliss)
+** in (inertia)
+** ma (mass)
+** exp (exponential)
+** bez (bezier)
+** mt (metatarget)
+** mb (metabehavior)
+** rndt (randtarget)
+** rndb (randbehavior)
+** rndn (randnode)
+** rndp (randphrase)
+** rpt (repeat)
+** mrk (mark)
+** ret (return)
+** skq (skewquad)
+** skx (skewexp)
+** skf (skewshuf)
+** shr (shrink)
+** grw (grow)
+** smo (smoothstep)
+** rmp (ramp)
+** irmp (invramp)
+** br (biramp)
+** gt (gate)
