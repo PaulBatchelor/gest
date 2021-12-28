@@ -14,6 +14,7 @@ gest_d * sk_node_gestnew(sk_core *core);
 gest_scalar * sk_node_scalarnew(sk_core *core);
 int sk_node_gescalar(sk_core *core);
 int sk_node_gestick(sk_core *core);
+int sk_node_conductor(sk_core *core);
 
 static lil_value_t gesticulate(lil_t lil,
                                size_t argc,
@@ -969,6 +970,25 @@ static lil_value_t l_gest_gate(lil_t lil,
     return NULL;
 }
 
+static lil_value_t l_gestcnd(lil_t lil,
+                             size_t argc,
+                             lil_value_t *argv)
+{
+    sk_core *core;
+    int rc;
+    core = lil_get_data(lil);
+
+    SKLIL_ARITY_CHECK(lil, "gestcnd", argc, 1);
+
+    rc = sklil_param(core, argv[0]);
+    SKLIL_PARAM_CHECK(lil, rc, "gstcnd");
+
+    rc = sk_node_conductor(core);
+    SKLIL_ERROR_CHECK(lil, rc, "gestcnd didn't work out.");
+
+    return NULL;
+}
+
 void sklil_load_gest(lil_t lil)
 {
     lil_register(lil, "gest_new", gest_new);
@@ -1016,4 +1036,5 @@ void sklil_load_gest(lil_t lil)
     lil_register(lil, "gest_invramp", l_gest_invramp);
     lil_register(lil, "gest_biramp", l_gest_biramp);
     lil_register(lil, "gest_gate", l_gest_gate);
+    lil_register(lil, "gestcnd", l_gestcnd);
 }

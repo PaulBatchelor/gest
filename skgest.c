@@ -481,3 +481,26 @@ int gf_node_conductor(gf_node *node)
     gf_node_set_destroy(node, conductor_destroy);
     return GF_OK;
 }
+
+int sk_node_conductor(sk_core *core)
+{
+    gf_patch *patch;
+    gf_node *node;
+    int rc;
+    sk_param bpm;
+
+    rc = sk_param_get(core, &bpm);
+    SK_ERROR_CHECK(rc);
+
+    patch = sk_core_patch(core);
+
+    rc = gf_patch_new_node(patch, &node);
+    SK_GF_ERROR_CHECK(rc);
+
+    rc = gf_node_conductor(node);
+    SK_GF_ERROR_CHECK(rc);
+
+    sk_param_set(core, node, &bpm, 0);
+    sk_param_out(core, node, 1);
+    return 0;
+}

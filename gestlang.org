@@ -204,6 +204,7 @@ int find_function(gestlang_d *glang)
 
     glang->fun = ent->fun;
     glang->nargs = ent->nargs;
+    glang->ud = ent->ud;
 
     return 0;
 }
@@ -673,6 +674,24 @@ static int f_mg(gest_d *g, int argc, char *argv[], void *ud)
 gestlang_add(glang, "mg", 2, 0, f_mg, NULL, NULL);
 #+END_SRC
 ** gl (gliss)
+Usage: mg
+
+Sets the currently selected target to have glissando
+behavior.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_gl(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_behavior_gliss(g);
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "gl", 2, 0, f_gl, NULL, NULL);
+#+END_SRC
 ** in (inertia)
 ** ma (mass)
 ** exp (exponential)
