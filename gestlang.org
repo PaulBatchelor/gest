@@ -298,7 +298,11 @@ int gestlang_load(gestlang_d *glang,
 
     fp = fopen(filename, "r");
 
-    if (fp == NULL) return 1;
+    if (fp == NULL) {
+        fprintf(stderr, "Could not open file %s\n", filename);
+        return 1;
+    }
+
     buf = calloc(1, 128);
 
     rc = 0;
