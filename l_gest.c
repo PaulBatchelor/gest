@@ -717,7 +717,7 @@ static lil_value_t l_gest_rseed(lil_t lil,
     SKLIL_ERROR_CHECK(lil, rc, "couldn't get gest data.");
 
     /* TODO: seed from sndkit RNG generator */
-    gest_seed(g, time(NULL));
+    gest_seed(g, sk_core_rand(core));
     return NULL;
 }
 

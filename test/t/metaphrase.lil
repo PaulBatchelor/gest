@@ -1,3 +1,5 @@
+srand 12345
+
 func sequence {} {
     regget 1
     dup
@@ -39,7 +41,7 @@ func sequence {} {
 gest_new
 regset zz 1
 
-gest_rseed [regget 1] 12345
+gest_rseed [regget 1]
 
 regget 1
 gestweight zz
@@ -56,7 +58,7 @@ mtof [add [sequence] 60]
 fmpair zz zz [param 1] [param 1] [param 1] [param 0]
 mul zz 0.5
 
-verify
+verify a88c64797510e4ded81c5cc876a5feb6
 
 regget 0
 unhold zz
