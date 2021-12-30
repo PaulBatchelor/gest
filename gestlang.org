@@ -826,19 +826,263 @@ static int f_met(gest_d *g, int argc, char *argv[], void *ud)
 gestlang_add(glang, "mt", 2, 1, f_met, NULL, NULL);
 #+END_SRC
 ** mb (metabehavior)
-** rndt (randtarget)
-** rndb (randbehavior)
-** rndn (randnode)
-** rndp (randphrase)
+Usage: mb size
+
+creates a metabehavior of size elements.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_mb(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_addmetabehavior(g, atoi(argv[0]));
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "mb", 2, 1, f_mb, NULL, NULL);
+#+END_SRC
+** rt (randtarget)
+Usage: rt
+
+Configures the current metatarget to randomly select
+targets.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_rndt(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_randtarget(g);
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "rt", 2, 0, f_rndt, NULL, NULL);
+#+END_SRC
+** rb (randbehavior)
+Usage: rb
+
+Configures the current metabehavior to randomly select
+behaviors.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_rndb(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_randbehavior(g);
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "rb", 2, 0, f_rndb, NULL, NULL);
+#+END_SRC
+** rn (randnode)
+Usage: rn
+
+Configures the current metanode to randomly select
+nodes.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_rndn(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_randnode(g);
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "rn", 2, 0, f_rndn, NULL, NULL);
+#+END_SRC
+** rp (randphrase)
+Usage: rp
+
+Configures the current metaphrase to randomly select
+phrases.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_rndp(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_randphrase(g);
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "rp", 2, 0, f_rndp, NULL, NULL);
+#+END_SRC
 ** rpt (repeat)
+Usage: rpt ntimes
+
+Repeats the current phrase N times before continuing.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_rpt(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_repeat(g, atoi(argv[0]));
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "rpt", 3, 1, f_rpt, NULL, NULL);
+#+END_SRC
 ** mrk (mark)
+Usage: mrk
+
+Sets a marker for the current position. Used with =return=.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_mrk(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_mark(g);
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "mrk", 3, 0, f_mrk, NULL, NULL);
+#+END_SRC
 ** ret (return)
+Usage: ret ntimes
+
+Returns to a previously marked phrase a fixed number
+of times before going forward.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_ret(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_return(g, atoi(argv[0]));
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "ret", 3, 1, f_ret, NULL, NULL);
+#+END_SRC
 ** skq (skewquad)
+Usage: skq dir
+
+Applies quadratic temporal skewing. Dir=0 eases inwards,
+dir=1 outwards.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_skq(gest_d *g, int argc, char *argv[], void *ud)
+{
+    return gest_skewquad(g, atoi(argv[0]));
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "skq", 3, 1, f_skq, NULL, NULL);
+#+END_SRC
 ** skx (skewexp)
+Usage: skx dir
+
+Applies exponential temporal skewing. Dir=0 eases inwards,
+dir=1 outwards.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_skx(gest_d *g, int argc, char *argv[], void *ud)
+{
+    return gest_skewexp(g, atoi(argv[0]));
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "skx", 3, 1, f_skx, NULL, NULL);
+#+END_SRC
 ** skf (skewshuf)
+Usage: skf
+
+Applies a 16-note shuffle temporal skewing. Only works
+on phrases that imply a 4/4 bar with 16th notes.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_skf(gest_d *g, int argc, char *argv[], void *ud)
+{
+    return gest_skewshuf(g);
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "skf", 3, 0, f_skf, NULL, NULL);
+#+END_SRC
 ** shr (shrink)
+Usage: shr amt
+
+The current target shrinks the temporal mass by some
+relative amount (0-1).
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_shr(gest_d *g, int argc, char *argv[], void *ud)
+{
+    return gest_shrink(g, strtod(argv[0], 0));
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "shr", 3, 1, f_shr, NULL, NULL);
+#+END_SRC
 ** grw (grow)
+Usage: grw amt
+
+The current target grows the temporal mass by some
+relative amount (0-1).
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_grw(gest_d *g, int argc, char *argv[], void *ud)
+{
+    return gest_grow(g, strtod(argv[0], 0));
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "grw", 3, 1, f_grw, NULL, NULL);
+#+END_SRC
 ** smo (smoothstep)
+Usage: smo
+
+Applies smoothstep behavior to the currently selected
+target.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_smo(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_behavior_smoothstep(g);
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "smo", 3, 0, f_smo, NULL, NULL);
+#+END_SRC
 ** rmp (ramp)
 Usage: rmp
 
@@ -859,8 +1103,60 @@ static int f_rmp(gest_d *g, int argc, char *argv[], void *ud)
 gestlang_add(glang, "rmp", 3, 0, f_rmp, NULL, NULL);
 #+END_SRC
 ** irmp (invramp)
+Usage: irmp
+
+Like rmp (ramp), but does the inverse.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_irmp(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_invramp(g);
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "irmp", 4, 0, f_irmp, NULL, NULL);
+#+END_SRC
 ** br (biramp)
+Usage: br mid
+
+Turns the ramp into a up-down ramp with a relative midpoint.
+Intended to be used for envelopes.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_br(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_behavior_biramp(g, strtod(argv[0], 0));
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "br", 2, 1, f_br, NULL, NULL);
+#+END_SRC
 ** gt (gate)
+Usage: gt pos
+
+Creates input ramp signal and turns it into a gate.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_gt(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_behavior_gate(g, strtod(argv[0], 0));
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "gt", 2, 1, f_gt, NULL, NULL);
+#+END_SRC
 * Comments
 A common practice for comments is to use '#', and
 from there until the end of the line the.
