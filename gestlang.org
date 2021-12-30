@@ -725,10 +725,106 @@ static int f_gl(gest_d *g, int argc, char *argv[], void *ud)
 gestlang_add(glang, "gl", 2, 0, f_gl, NULL, NULL);
 #+END_SRC
 ** in (inertia)
+Usage: in amt
+
+Applys temporal inertia. This unit is approximately in tau
+units. 0.001 would be very fast. 0.1 would add a bit of
+sludge. anything greater than 0.5 starts to get very slow.
+0 turns off the inertia entirely and changes are
+instantaneous.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_in(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_inertia(g, strtod(argv[0], 0));
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "in", 2, 1, f_in, NULL, NULL);
+#+END_SRC
 ** ma (mass)
+Usage: ma amt
+
+Applys temporal mass. This is a unitless value between -120
+and 120. Positive mass values indicate relatively faster
+tempo. Negative values indicate relatively slower tempo. How
+fast the tempo will react to changes depends on the inertia.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_ma(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_mass(g, strtod(argv[0], 0));
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "ma", 2, 1, f_ma, NULL, NULL);
+#+END_SRC
 ** exp (exponential)
+Usage: exp slope
+
+Applies exponential behavior to the currently selected
+target with a slope amount.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_exp(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_behavior_exponential(g, strtod(argv[0], 0));
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "exp", 3, 1, f_exp, NULL, NULL);
+#+END_SRC
 ** bez (bezier)
+Usage: bez cx cy
+
+Applies bezier behavior to the currently selected
+target with two control points.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_bez(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_behavior_bezier(g,
+                         strtod(argv[0], 0),
+                         strtod(argv[1], 0));
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "bez", 3, 2, f_bez, NULL, NULL);
+#+END_SRC
 ** mt (metatarget)
+Usage: mt size
+
+creates a metatarget of size elements.
+
+#+NAME: words
+#+BEGIN_SRC c
+static int f_met(gest_d *g, int argc, char *argv[], void *ud)
+{
+    gest_addmetatarget(g, atoi(argv[0]));
+    return 0;
+}
+#+END_SRC
+
+#+NAME: loader
+#+BEGIN_SRC c
+gestlang_add(glang, "mt", 2, 1, f_met, NULL, NULL);
+#+END_SRC
 ** mb (metabehavior)
 ** rndt (randtarget)
 ** rndb (randbehavior)
