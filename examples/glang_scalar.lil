@@ -1,0 +1,24 @@
+regset [gest_new] 0
+regset [gest_scalarnew] 1
+glang_new gl
+
+glang_scalar [grab gl] [regget 1] "gate"
+
+glang_eval [regget 0] [grab gl] "beg 3 3"
+glang_eval [regget 0] [grab gl] \
+"nt C-4 sg gate 1 nt D-4 sg nt E-4 sg nt G-4 sg gate 0"
+glang_eval [regget 0] [grab gl] \
+"end loop fin"
+
+gesticulate [regget 0] [gestcnd 110]
+mtof zz
+blsaw zz
+butlp zz 800
+mul zz 0.5
+
+gescalar [regget 1]
+mul zz zz
+
+wavout zz glang_scalar.wav
+
+computes 10
