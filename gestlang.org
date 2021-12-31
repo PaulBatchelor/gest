@@ -491,6 +491,74 @@ int gestlang_find(gestlang_d *glang,
     return 1;
 }
 #+END_SRC
+** update
+Replaces an entry in a dictionary if it exists.
+
+#+NAME: funcdefs
+#+BEGIN_SRC c
+void gestlang_update(gestlang_d *glang,
+                     const char *key,
+                     int sz,
+                     int nargs,
+                     int (*fun)(gest_d *,int,char **,void*),
+                     void *ud,
+                     void (*del)(void *));
+#+END_SRC
+
+#+NAME: funcs
+#+BEGIN_SRC c
+void gestlang_update(gestlang_d *glang,
+                     const char *key,
+                     int sz,
+                     int nargs,
+                     int (*fun)(gest_d *,int,char **,void*),
+                     void *ud,
+                     void (*del)(void *))
+{
+    gestlang_entry *ent, *prv, *old;
+    int rc;
+    int pos;
+
+    old = NULL;
+    rc = gestlang_find(glang, key, sz, &old);
+
+    if (rc) {
+        gestlang_add(glang, key, sz, nargs, fun, ud, del);
+        return;
+    }
+
+    /* replace the key */
+    pos = hash(key, sz);
+    ent = glang->ent[pos];
+    prv = NULL;
+
+    if (ent == old) {
+        glang->ent[pos] = glang->ent[pos]->nxt;
+        if (old->del != NULL) {
+            old->del(old->ud);
+        }
+        free(old);
+        gestlang_add(glang, key, sz, nargs, fun, ud, del);
+        return;
+    }
+
+    while (ent != NULL) {
+        if (ent == old) {
+            prv->nxt = ent->nxt;
+            break;
+        }
+        prv = ent;
+        ent = ent->nxt;
+    }
+
+    if (old->del != NULL) {
+        old->del(old->ud);
+    }
+    free(old);
+
+    gestlang_add(glang, key, sz, nargs, fun, ud, del);
+}
+#+END_SRC
 * Default Words
 ** loader
 #+NAME: funcdefs
