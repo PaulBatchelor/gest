@@ -1,13 +1,13 @@
 OBJ=gest.o skgest.o gestlang.o
 
-CFLAGS=-Wall -pedantic -O3 -g
+CFLAGS+=-Wall -pedantic -O3 -g
 
-WORGLE=skorgle
+WORGLE?=skorgle
 
 default: lilgest
 
 lilgest: $(OBJ) lilgest.o l_gest.o l_gestlang.o
-	$(CC) $(CFLAGS) $(OBJ) l_gest.o l_gestlang.o lilgest.o -o $@ -lsndkit -lm
+	$(CC) $(CFLAGS) $(OBJ) l_gest.o l_gestlang.o lilgest.o -o $@ $(LDFLAGS) -lsndkit -lm
 
 gest.c: gest.org
 	$(WORGLE) -g -Werror $<
